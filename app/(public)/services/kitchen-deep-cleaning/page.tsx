@@ -157,7 +157,7 @@ export default function KitchenDeepCleaning() {
                         <div className="grid md:grid-cols-1 gap-6">
                           {cat.items.map((item, i) => (
                             <div key={i} className="flex gap-4 group">
-                              <div className="h-5 w-5 rounded-full bg-primary/10 flex shrink-0 items-center justify-center text-primary mt-1 group-hover:bg-primary group-hover:text-white transition-all">on-all">
+                              <div className="h-5 w-5 rounded-full bg-primary/10 flex shrink-0 items-center justify-center text-primary mt-1 group-hover:bg-primary group-hover:text-white transition-all">
                                 <CheckCircle2 className="h-3 w-3" />
                               </div>
                               <div>
