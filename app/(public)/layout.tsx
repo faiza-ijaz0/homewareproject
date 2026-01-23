@@ -253,6 +253,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                 <li><a href="/about" className="hover:text-white transition-colors flex items-center gap-2">About us</a></li>
                 <li><a href="/testimonials" className="hover:text-white transition-colors flex items-center gap-2">Testimonials</a></li>
                 <li><a href="/faqs" className="hover:text-white transition-colors flex items-center gap-2">FAQs</a></li>
+                <li><a href="/privacy-policy" className="hover:text-white transition-colors flex items-center gap-2">Privacy Policy</a></li>
                 <li><a href="/contact" className="hover:text-white transition-colors flex items-center gap-2">Contact us</a></li>
               </ul>
             </div>
@@ -298,7 +299,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           href="https://wa.me/97180046639675" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="pointer-events-auto h-16 w-16 bg-[#25D366] text-white rounded-full shadow-[0_15px_40px_rgba(37,211,102,0.4)] flex items-center justify-center hover:scale-125 transition-all duration-300 group relative border-4 border-white/30 hover:border-white animate-bounce-subtle"
+          className="pointer-events-auto h-16 w-16 bg-[#25D366] text-white rounded-full shadow-[0_15px_40px_rgba(37,211,102,0.4)] flex items-center justify-center hover:scale-125 transition-all duration-300 group relative border-4 border-white/30 hover:border-white animate-bounce-subtle z-9999"
         >
           <MessageCircle className="h-8 w-8 fill-current" />
           <div className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 rounded-full border-2 border-white animate-pulse" />

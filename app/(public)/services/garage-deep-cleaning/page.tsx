@@ -158,7 +158,7 @@ export default function GarageDeepCleaning() {
                         <div className="grid md:grid-cols-1 gap-6">
                           {cat.items.map((item, i) => (
                             <div key={i} className="flex gap-4 group">
-                              <div className="h-5 w-5 rounded-full bg-primary/10 flex flex-shrink-0 items-center justify-center text-primary mt-1 group-hover:bg-primary group-hover:text-white transition-all">
+                              <div className="h-5 w-5 rounded-full bg-primary/10 flex shrink-0 items-center justify-center text-primary mt-1 group-hover:bg-primary group-hover:text-white transition-all">on-all">
                                 <CheckCircle2 className="h-3 w-3" />
                               </div>
                               <div>
@@ -204,9 +204,9 @@ export default function GarageDeepCleaning() {
                 <div className="mt-12 p-8 bg-white/5 rounded-3xl border border-white/10 text-center">
                   <p className="text-sm font-bold text-slate-400 mb-4 uppercase tracking-widest">Pricing</p>
                   <p className="text-4xl font-black text-primary tracking-tighter mb-8 italic">Contact Us</p>
-                  <button className="w-full bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all">
+                  <a href="/book-service" className="w-full bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all inline-block">
                     Custom Quote
-                  </button>
+                  </a>
                 </div>
               </motion.div>
             </div>

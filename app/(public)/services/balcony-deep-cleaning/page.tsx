@@ -194,9 +194,9 @@ export default function BalconyDeepCleaning() {
                 <div className="mt-12 p-8 bg-white/5 rounded-3xl border border-white/10 text-center">
                   <p className="text-sm font-bold text-slate-400 mb-4 uppercase tracking-widest">Pricing</p>
                   <p className="text-4xl font-black text-primary tracking-tighter mb-8 italic">Contact Us</p>
-                  <button className="w-full bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all">
+                  <a href="/book-service" className="w-full bg-white text-slate-900 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary hover:text-white transition-all inline-block">
                     Custom Quote
-                  </button>
+                  </a>
                 </div>
               </motion.div>
             </div>

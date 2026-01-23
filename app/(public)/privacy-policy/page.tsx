@@ -48,13 +48,13 @@ export default function PrivacyPolicy() {
                 </div>
                 <p className="text-slate-600 text-lg leading-relaxed font-medium">
                   We use your information to:
-                  <ul className="list-disc pl-6 mt-4 space-y-2">
-                    <li>Schedule and confirm your cleaning appointments</li>
-                    <li>Process payments and issue invoices</li>
-                    <li>Communicate service updates or changes</li>
-                    <li>Enhance our customer support experience</li>
-                  </ul>
                 </p>
+                <ul className="list-disc pl-6 space-y-2 text-slate-600 text-lg leading-relaxed font-medium">
+                  <li>Schedule and confirm your cleaning appointments</li>
+                  <li>Process payments and issue invoices</li>
+                  <li>Communicate service updates or changes</li>
+                  <li>Enhance our customer support experience</li>
+                </ul>
               </div>
 
               <div className="space-y-6">

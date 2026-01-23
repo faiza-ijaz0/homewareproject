@@ -1,20 +1,28 @@
 "use client"
 
 import { CheckCircle2, ArrowRight, Star, Shield, Clock, Users, Award, Leaf, Sparkles, ShieldCheck, Zap } from 'lucide-react'
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion'
-import { useRef, useEffect } from 'react'
+import { motion, useTransform, useMotionValue, useSpring, useScroll } from 'framer-motion'
+import { useRef, useEffect, useState } from 'react'
 
 export default function Home() {
-  const ref = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const heroRef = useRef<HTMLDivElement>(null)
+  
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
 
-  // Smooth mouse movement
+  // Smooth mouse movement for parallax
   const springX = useSpring(mouseX, { stiffness: 50, damping: 20 })
   const springY = useSpring(mouseY, { stiffness: 50, damping: 20 })
 
+  // For magnetic effects
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
+  const [isClient, setIsClient] = useState(false)
+
   useEffect(() => {
+    setIsClient(true)
     const handleMouseMove = (e: MouseEvent) => {
+      // Relative to window
       mouseX.set(e.clientX)
       mouseY.set(e.clientY)
     }
@@ -22,38 +30,60 @@ export default function Home() {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [mouseX, mouseY])
 
+  // Only use scroll animations on client side
   const { scrollYProgress } = useScroll({
-    target: ref,
+    target: containerRef,
     offset: ["start start", "end start"]
   })
 
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"])
   const textY = useTransform(scrollYProgress, [0, 1], ["0%", "200%"])
+  
+  // Parallax elements for hero
+  const heroParallaxX = useTransform(springX, [0, 2000], [-20, 20])
+  const heroParallaxY = useTransform(springY, [0, 1000], [-20, 20])
+  const blobParallaxX = useTransform(springX, [0, 2000], [50, -50])
+  const blobParallaxY = useTransform(springY, [0, 1000], [50, -50])
 
   return (
-    <div className="flex flex-col overflow-hidden">
-      {/* Interactive Cursor Spotlight */}
+    <div ref={containerRef} className="flex flex-col overflow-hidden selection:bg-primary selection:text-white">
+      {/* Interactive Cursor Spotlight - Enhanced */}
       <motion.div
-        className="fixed inset-0 z-30 pointer-events-none opacity-40"
+        className="fixed inset-0 z-30 pointer-events-none"
         style={{
           background: useTransform(
             [springX, springY],
-            ([x, y]) => `radial-gradient(600px circle at ${x}px ${y}px, rgba(236, 72, 153, 0.1), transparent 80%)`
+            ([x, y]) => `radial-gradient(800px circle at ${x}px ${y}px, rgba(219, 39, 119, 0.08), transparent 80%)`
           ),
         }}
       />
 
+      {/* Floating Interactive Geometric Shapes */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <motion.div 
+          style={{ x: blobParallaxX, y: blobParallaxY, rotate: 45 }}
+          className="absolute top-[15%] left-[5%] w-64 h-64 bg-primary/3 rounded-[40%] blur-3xl"
+        />
+        <motion.div 
+          style={{ x: useTransform(springX, [0, 2000], [-30, 30]), y: useTransform(springY, [0, 1000], [30, -30]) }}
+          className="absolute bottom-[20%] right-[10%] w-96 h-96 bg-pink-100/10 rounded-full blur-3xl"
+        />
+      </div>
+
       {/* Hero Section */}
-      <section ref={ref} className="relative min-h-[90vh] flex items-center pt-20 pb-32 overflow-hidden bg-white">
+      <section ref={heroRef} className="relative min-h-[95vh] flex items-center pt-20 pb-32 overflow-hidden bg-white">
         <motion.div 
           className="absolute inset-0 z-0"
-          style={{ y: backgroundY }}
+          style={{ y: isClient ? backgroundY : "0%", x: heroParallaxX }}
         >
-          <div className="absolute inset-0 bg-linear-to-r from-white via-white/50 to-transparent z-10 font-sans"></div>
-          <img 
+          <div className="absolute inset-0 bg-linear-to-r from-white via-white/40 to-transparent z-10"></div>
+          <motion.img 
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1.1 }}
+            transition={{ duration: 2, ease: "easeOut" }}
             src="https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?auto=format&fit=crop&q=80" 
             alt="Premium Home Interior" 
-            className="w-full h-full object-cover object-center scale-110"
+            className="w-full h-full object-cover object-center"
           />
         </motion.div>
         
@@ -235,10 +265,13 @@ export default function Home() {
 
       {/* Services Section */}
       <section className="py-32 bg-white overflow-hidden relative">
-        {/* Background Text Decor */}
-        <div className="absolute top-40 -left-20 text-[15rem] font-black text-slate-50 select-none pointer-events-none tracking-tighter -rotate-90">
+        {/* Background Text Decor with Parallax */}
+        <motion.div 
+          style={{ x: useTransform(springX, [0, 2000], [-50, 50]), y: useTransform(springY, [0, 1000], [-30, 30]) }}
+          className="absolute top-40 -left-20 text-[15rem] font-black text-slate-50 select-none pointer-events-none tracking-tighter -rotate-90"
+        >
           SERVICES
-        </div>
+        </motion.div>
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-8">
@@ -302,28 +335,41 @@ export default function Home() {
             ].map((service, i) => (
               <motion.div 
                 key={i} 
-                className="group relative h-125 rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-100"
+                className="group relative h-125 rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-100 cursor-none"
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
+                onMouseEnter={() => setHoveredCard(i)}
+                onMouseLeave={() => setHoveredCard(null)}
+                whileHover={{ y: -15, transition: { duration: 0.4, ease: "easeOut" } }}
               >
-                <img 
-                  src={service.image} 
-                  alt={service.title} 
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-slate-900 via-slate-900/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+                {/* Magnetic Tilt Effect Container */}
+                <motion.div
+                  className="absolute inset-0 z-0"
+                  animate={{
+                    rotateY: hoveredCard === i ? (mouseX.get() - (window.innerWidth / 2)) / 50 : 0,
+                    rotateX: hoveredCard === i ? -(mouseY.get() - (window.innerHeight / 2)) / 50 : 0,
+                  }}
+                  transition={{ type: "spring", stiffness: 150, damping: 15 }}
+                >
+                  <img 
+                    src={service.image} 
+                    alt={service.title} 
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
+                  />
+                  <div className="absolute inset-0 bg-linear-to-t from-slate-900 via-slate-900/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+                </motion.div>
                 
-                <div className="absolute top-8 left-8">
+                <div className="absolute top-8 left-8 z-10">
                   <span className="px-4 py-1.5 rounded-full bg-primary/90 backdrop-blur-md text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg">
                     {service.tag}
                   </span>
                 </div>
 
-                <div className="absolute bottom-10 left-10 right-10">
+                <div className="absolute bottom-10 left-10 right-10 z-10">
                   <h3 className="text-3xl font-black text-white mb-4 leading-tight">{service.title}</h3>
-                  <p className="text-slate-300 font-medium mb-8 opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-y-4 group-hover:translate-y-0">
+                  <p className="text-slate-300 font-medium mb-8 opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-y-4 group-hover:translate-y-0 text-sm">
                     {service.description}
                   </p>
                   <motion.a 
