@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Mail,
@@ -41,8 +41,22 @@ import {
   CheckCircle
 } from 'lucide-react'
 
+// Firebase imports
+import { db } from '@/lib/firebase'
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where,
+  onSnapshot,
+  doc,
+  deleteDoc,
+  updateDoc
+} from 'firebase/firestore'
+
 interface Client {
-  id: number
+  id: string
   name: string
   company: string
   email: string
@@ -60,167 +74,16 @@ interface Client {
     value: number
     status: 'Active' | 'Completed' | 'Cancelled'
   }>
+  source?: 'lead' | 'manual'
+  firebaseId?: string // Store the actual Firebase document ID
 }
 
 export default function ClientProfiles() {
-  const [clients, setClients] = useState<Client[]>([
-    {
-      id: 1,
-      name: 'Ahmed Al-Mansouri',
-      company: 'Dubai Properties LLC',
-      email: 'ahmed@dubaiprop.ae',
-      phone: '+971-50-1111111',
-      location: 'Dubai Marina',
-      joinDate: '2024-01-15',
-      totalSpent: 275000,
-      projects: 4,
-      lastService: '2025-12-22',
-      status: 'Active',
-      tier: 'Gold',
-      notes: 'Premium client, high satisfaction',
-      contracts: [
-        { name: 'Monthly Cleaning', value: 45000, status: 'Active' },
-        { name: 'Deep Cleaning', value: 25000, status: 'Completed' },
-        { name: 'Event Cleaning', value: 35000, status: 'Completed' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Layla Hassan',
-      company: 'Paradise Hotels',
-      email: 'layla@paradisehotels.ae',
-      phone: '+971-50-4444444',
-      location: 'Palm Jumeirah',
-      joinDate: '2024-06-10',
-      totalSpent: 450000,
-      projects: 6,
-      lastService: '2025-12-21',
-      status: 'Active',
-      tier: 'Platinum',
-      notes: 'Strategic partner, regular volume',
-      contracts: [
-        { name: 'Daily Housekeeping', value: 120000, status: 'Active' },
-        { name: 'Linen Services', value: 75000, status: 'Active' },
-        { name: 'Event Cleanup', value: 50000, status: 'Completed' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Fatima Al-Noor',
-      company: 'Al Noor Logistics',
-      email: 'fatima@alnoor.ae',
-      phone: '+971-50-2222222',
-      location: 'Jebel Ali',
-      joinDate: '2024-09-20',
-      totalSpent: 125000,
-      projects: 2,
-      lastService: '2025-12-19',
-      status: 'Active',
-      tier: 'Silver',
-      notes: 'Growing client, potential for expansion',
-      contracts: [
-        { name: 'Warehouse Cleaning', value: 40000, status: 'Active' },
-        { name: 'Office Maintenance', value: 30000, status: 'Completed' }
-      ]
-    },
-    {
-      id: 4,
-      name: 'Mohammed Al-Rashid',
-      company: 'Rashid Enterprises',
-      email: 'mohammed@rashident.ae',
-      phone: '+971-50-3333333',
-      location: 'Business Bay',
-      joinDate: '2024-03-12',
-      totalSpent: 180000,
-      projects: 3,
-      lastService: '2025-12-20',
-      status: 'Active',
-      tier: 'Gold',
-      notes: 'Consistent client, good payment history',
-      contracts: [
-        { name: 'Office Cleaning', value: 35000, status: 'Active' },
-        { name: 'Facility Maintenance', value: 25000, status: 'Completed' }
-      ]
-    },
-    {
-      id: 5,
-      name: 'Sara Al-Zahra',
-      company: 'Zahra Medical Center',
-      email: 'sara@zahramedical.ae',
-      phone: '+971-50-5555555',
-      location: 'Jumeirah',
-      joinDate: '2024-11-05',
-      totalSpent: 95000,
-      projects: 1,
-      lastService: '2025-12-18',
-      status: 'Active',
-      tier: 'Silver',
-      notes: 'New client, excellent first impression',
-      contracts: [
-        { name: 'Medical Facility Cleaning', value: 30000, status: 'Active' }
-      ]
-    },
-    {
-      id: 6,
-      name: 'Omar Al-Khalidi',
-      company: 'Khalidi Construction',
-      email: 'omar@khalidiconst.ae',
-      phone: '+971-50-6666666',
-      location: 'Dubai Silicon Oasis',
-      joinDate: '2024-07-22',
-      totalSpent: 320000,
-      projects: 5,
-      lastService: '2025-12-23',
-      status: 'Active',
-      tier: 'Platinum',
-      notes: 'Large construction projects, high volume',
-      contracts: [
-        { name: 'Construction Site Cleaning', value: 80000, status: 'Active' },
-        { name: 'Equipment Maintenance', value: 45000, status: 'Active' },
-        { name: 'Worker Accommodation', value: 35000, status: 'Completed' }
-      ]
-    },
-    {
-      id: 7,
-      name: 'Aisha Al-Mahmoud',
-      company: 'Mahmoud Retail Group',
-      email: 'aisha@mahmoudretail.ae',
-      phone: '+971-50-7777777',
-      location: 'Dubai Mall Area',
-      joinDate: '2024-08-15',
-      totalSpent: 210000,
-      projects: 3,
-      lastService: '2025-12-17',
-      status: 'Active',
-      tier: 'Gold',
-      notes: 'Retail chain, multiple locations',
-      contracts: [
-        { name: 'Mall Cleaning Services', value: 55000, status: 'Active' },
-        { name: 'Store Maintenance', value: 40000, status: 'Active' }
-      ]
-    },
-    {
-      id: 8,
-      name: 'Khalid Al-Farsi',
-      company: 'Farsi Shipping Co.',
-      email: 'khalid@farsishipping.ae',
-      phone: '+971-50-8888888',
-      location: 'Port Rashid',
-      joinDate: '2024-05-08',
-      totalSpent: 380000,
-      projects: 4,
-      lastService: '2025-12-16',
-      status: 'Active',
-      tier: 'Platinum',
-      notes: 'Shipping company, port facilities',
-      contracts: [
-        { name: 'Port Facility Cleaning', value: 95000, status: 'Active' },
-        { name: 'Warehouse Services', value: 60000, status: 'Active' },
-        { name: 'Office Cleaning', value: 25000, status: 'Completed' }
-      ]
-    }
-  ])
+  // State for Firebase data
+  const [clients, setClients] = useState<Client[]>([])
+  const [clientMap, setClientMap] = useState<Map<string, boolean>>(new Map()) // Track unique clients by firebaseId
 
+  // UI State
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -240,8 +103,10 @@ export default function ClientProfiles() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  // New state for import/export and add client
+  // New state for import/export, add client, and edit client
   const [showAddClient, setShowAddClient] = useState(false)
+  const [showEditClient, setShowEditClient] = useState(false)
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importProgress, setImportProgress] = useState(0)
@@ -259,8 +124,167 @@ export default function ClientProfiles() {
     notes: ''
   })
 
+  // Fetch clients from both leads (Won status) and clients collection
+  useEffect(() => {
+    const fetchAllClients = async () => {
+      try {
+        const allClients: Client[] = []
+        const clientMap = new Map<string, boolean>()
+        
+        // 1. Fetch from 'leads' collection where status is 'Won'
+        const leadsQuery = query(
+          collection(db, 'leads'),
+          where('status', '==', 'Won')
+        )
+        
+        const leadsSnapshot = await getDocs(leadsQuery)
+        leadsSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          const firebaseId = doc.id
+          
+          if (!clientMap.has(firebaseId)) {
+            clientMap.set(firebaseId, true)
+            
+            const joinDate = data.createdAt 
+              ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString().split('T')[0] : data.createdAt)
+              : new Date().toISOString().split('T')[0]
+            
+            const totalSpent = data.value || data.totalSpent || 0
+            const projects = data.serviceHistory ? data.serviceHistory.length : 0
+            
+            allClients.push({
+              id: `lead_${firebaseId}`, // Generate unique local ID
+              firebaseId: firebaseId,
+              name: data.name || 'Unknown',
+              company: data.company || '',
+              email: data.email || '',
+              phone: data.phone || '',
+              location: data.address || data.location || '',
+              joinDate: joinDate,
+              totalSpent: totalSpent,
+              projects: projects,
+              lastService: data.lastContact || 'No service yet',
+              status: 'Active',
+              tier: (data.tier && ['Platinum', 'Gold', 'Silver', 'Bronze'].includes(data.tier) 
+                    ? data.tier 
+                    : totalSpent > 200000 ? 'Platinum' :
+                      totalSpent > 100000 ? 'Gold' :
+                      totalSpent > 50000 ? 'Silver' : 'Bronze'),
+              notes: data.notes || '',
+              contracts: data.currentContract ? [
+                {
+                  name: 'Active Contract',
+                  value: data.currentContract.value || 0,
+                  status: 'Active'
+                }
+              ] : [],
+              source: 'lead'
+            })
+          }
+        })
+        
+        // 2. Fetch from 'clients' collection
+        const clientsSnapshot = await getDocs(collection(db, 'clients'))
+        clientsSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          const firebaseId = doc.id
+          
+          if (!clientMap.has(firebaseId)) {
+            clientMap.set(firebaseId, true)
+            
+            allClients.push({
+              id: `manual_${firebaseId}`, // Generate unique local ID
+              firebaseId: firebaseId,
+              name: data.name || 'Unknown',
+              company: data.company || '',
+              email: data.email || '',
+              phone: data.phone || '',
+              location: data.location || '',
+              joinDate: data.joinDate || new Date().toISOString().split('T')[0],
+              totalSpent: data.totalSpent || 0,
+              projects: data.projects || 0,
+              lastService: data.lastService || 'No service yet',
+              status: data.status || 'Active',
+              tier: data.tier || 'Bronze',
+              notes: data.notes || '',
+              contracts: data.contracts || [],
+              source: 'manual'
+            })
+          }
+        })
+        
+        setClients(allClients)
+        setClientMap(clientMap)
+        
+      } catch (error) {
+        console.error('Error fetching clients:', error)
+      }
+    }
+    
+    fetchAllClients()
+  }, [])
+
+  // Real-time listener ONLY for new clients (not for initial load)
+  useEffect(() => {
+    // Skip if we don't have initial data yet
+    if (clientMap.size === 0) return
+    
+    const clientsCollection = collection(db, 'clients')
+    
+    const unsubscribe = onSnapshot(clientsCollection, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data()
+          const firebaseId = change.doc.id
+          
+          // Check if client already exists in our map
+          if (!clientMap.has(firebaseId)) {
+            const newClient: Client = {
+              id: `manual_${firebaseId}`,
+              firebaseId: firebaseId,
+              name: data.name || 'Unknown',
+              company: data.company || '',
+              email: data.email || '',
+              phone: data.phone || '',
+              location: data.location || '',
+              joinDate: data.joinDate || new Date().toISOString().split('T')[0],
+              totalSpent: data.totalSpent || 0,
+              projects: data.projects || 0,
+              lastService: data.lastService || 'No service yet',
+              status: data.status || 'Active',
+              tier: data.tier || 'Bronze',
+              notes: data.notes || '',
+              contracts: data.contracts || [],
+              source: 'manual'
+            }
+            
+            // Update both state and map
+            setClients(prev => {
+              // Check if client already exists in the array
+              const exists = prev.some(client => client.firebaseId === firebaseId)
+              if (!exists) {
+                return [...prev, newClient]
+              }
+              return prev
+            })
+            
+            setClientMap(prev => {
+              const newMap = new Map(prev)
+              newMap.set(firebaseId, true)
+              return newMap
+            })
+          }
+        }
+      })
+    }, (error) => {
+      console.error('Error listening to clients:', error)
+    })
+    
+    return () => unsubscribe()
+  }, [clientMap])
+
   const locations = useMemo(() => {
-    const uniqueLocations = [...new Set(clients.map(c => c.location))]
+    const uniqueLocations = [...new Set(clients.map(c => c.location).filter(Boolean))]
     return uniqueLocations.sort()
   }, [clients])
 
@@ -303,16 +327,21 @@ export default function ClientProfiles() {
     })
 
     // Sort
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key!]
-        const bValue = b[sortConfig.key!]
+   // Sort
+if (sortConfig.key) {
+  filtered.sort((a, b) => {
+    const aValue = a[sortConfig.key!] as any
+    const bValue = b[sortConfig.key!] as any
 
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-        return 0
-      })
-    }
+    if (aValue == null && bValue == null) return 0
+    if (aValue == null) return sortConfig.direction === 'asc' ? 1 : -1
+    if (bValue == null) return sortConfig.direction === 'asc' ? -1 : 1
+
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+    return 0
+  })
+}
 
     return filtered
   }, [clients, searchTerm, filters, sortConfig])
@@ -340,41 +369,141 @@ export default function ClientProfiles() {
     return { totalRevenue, avgClientValue, totalProjects, clientCount: clients.length, activeClients }
   }, [clients])
 
-  const handleDeleteClient = useCallback((id: number) => {
+  // Delete client from Firebase
+  const handleDeleteClient = useCallback(async (id: string, source?: 'lead' | 'manual', firebaseId?: string) => {
     if (confirm('Delete this client profile?')) {
-      setClients(clients.filter(c => c.id !== id))
-      if (selectedClient?.id === id) setShowDetails(false)
+      try {
+        if (source === 'manual' && firebaseId) {
+          await deleteDoc(doc(db, 'clients', firebaseId))
+        } else if (source === 'lead' && firebaseId) {
+          try {
+            await updateDoc(doc(db, 'leads', firebaseId), {
+              status: 'Lost',
+              updatedAt: new Date().toISOString()
+            })
+          } catch (error) {
+            console.log('Lead not found or already deleted')
+          }
+        }
+        
+        // Update local state and map
+        setClients(prev => prev.filter(c => c.id !== id))
+        if (firebaseId) {
+          setClientMap(prev => {
+            const newMap = new Map(prev)
+            newMap.delete(firebaseId)
+            return newMap
+          })
+        }
+        
+        if (selectedClient?.id === id) setShowDetails(false)
+        if (editingClient?.id === id) setShowEditClient(false)
+        
+        alert('Client deleted successfully!')
+      } catch (error) {
+        console.error('Error deleting client:', error)
+        alert('Error deleting client')
+      }
     }
-  }, [clients, selectedClient])
+  }, [selectedClient, editingClient])
 
-  const handleAddClient = useCallback((clientData: Omit<Client, 'id' | 'joinDate' | 'lastService' | 'contracts'>) => {
-    const newClient: Client = {
-      ...clientData,
-      id: Math.max(...clients.map(c => c.id)) + 1,
-      joinDate: new Date().toISOString().split('T')[0],
-      lastService: 'No service yet',
-      contracts: []
+  // Add new client to Firebase - DO NOT add to local state here
+  const handleAddClient = useCallback(async (clientData: Omit<Client, 'id' | 'joinDate' | 'lastService' | 'contracts' | 'source' | 'firebaseId'>) => {
+    try {
+      const clientDoc = {
+        name: clientData.name,
+        company: clientData.company,
+        email: clientData.email,
+        phone: clientData.phone,
+        location: clientData.location,
+        totalSpent: clientData.totalSpent,
+        projects: clientData.projects,
+        tier: clientData.tier,
+        status: clientData.status,
+        notes: clientData.notes,
+        joinDate: new Date().toISOString().split('T')[0],
+        lastService: 'No service yet',
+        contracts: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      // Save to Firebase 'clients' collection
+      await addDoc(collection(db, 'clients'), clientDoc)
+      
+      // DO NOT add to local state here - real-time listener will handle it
+      
+      setShowAddClient(false)
+      setNewClientData({
+        name: '',
+        email: '',
+        phone: '',
+        company: '',
+        tier: 'Bronze',
+        status: 'Active',
+        location: '',
+        totalSpent: 0,
+        projects: 0,
+        notes: ''
+      })
+      
+      alert('Client added successfully!')
+      
+    } catch (error) {
+      console.error('Error adding client:', error)
+      alert('Error adding client')
     }
-    setClients([...clients, newClient])
-    setShowAddClient(false)
-    setNewClientData({
-      name: '',
-      email: '',
-      phone: '',
-      company: '',
-      tier: 'Bronze',
-      status: 'Active',
-      location: '',
-      totalSpent: 0,
-      projects: 0,
-      notes: ''
-    })
-  }, [clients])
+  }, [])
+
+  // Edit client function
+  const handleEditClient = useCallback(async (client: Client, updatedData: any) => {
+    try {
+      if (!client.firebaseId) {
+        alert('Error: Client ID not found')
+        return
+      }
+
+      // Prepare update data
+      const updateData: any = {
+        name: updatedData.name,
+        company: updatedData.company,
+        email: updatedData.email,
+        phone: updatedData.phone,
+        location: updatedData.location,
+        totalSpent: updatedData.totalSpent,
+        projects: updatedData.projects,
+        tier: updatedData.tier,
+        status: updatedData.status,
+        notes: updatedData.notes,
+        updatedAt: new Date().toISOString()
+      }
+
+      // Update in Firebase based on source
+      if (client.source === 'manual') {
+        await updateDoc(doc(db, 'clients', client.firebaseId), updateData)
+      } else if (client.source === 'lead') {
+        await updateDoc(doc(db, 'leads', client.firebaseId), updateData)
+      }
+
+      // Update local state
+      setClients(prev => prev.map(c => 
+        c.id === client.id ? { ...c, ...updateData } : c
+      ))
+
+      setShowEditClient(false)
+      setEditingClient(null)
+      
+      alert('Client updated successfully!')
+    } catch (error) {
+      console.error('Error updating client:', error)
+      alert('Error updating client')
+    }
+  }, [])
 
   const handleImportClients = useCallback(async (file: File) => {
     setImportProgress(0)
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const csv = e.target?.result as string
         const lines = csv.split('\n').filter(line => line.trim())
@@ -392,59 +521,64 @@ export default function ClientProfiles() {
           return
         }
 
-        const importedClients: Client[] = []
+        const importedCount = 0
         const errors: string[] = []
         
-        lines.slice(1).forEach((line, index) => {
-          setImportProgress(Math.round(((index + 1) / (lines.length - 1)) * 100))
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i]
+          setImportProgress(Math.round(((i) / (lines.length - 1)) * 100))
           
           const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
           if (values.length !== headers.length) {
-            errors.push(`Row ${index + 2}: Incorrect number of columns`)
-            return
+            errors.push(`Row ${i + 1}: Incorrect number of columns`)
+            continue
           }
           
           const clientData: any = {}
-          headers.forEach((header, i) => {
-            clientData[header] = values[i]
+          headers.forEach((header, idx) => {
+            clientData[header] = values[idx]
           })
           
           // Validate required fields
           if (!clientData.name || !clientData.email || !clientData.phone) {
-            errors.push(`Row ${index + 2}: Missing required fields (name, email, phone)`)
-            return
+            errors.push(`Row ${i + 1}: Missing required fields (name, email, phone)`)
+            continue
           }
           
           // Validate email format
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
           if (!emailRegex.test(clientData.email)) {
-            errors.push(`Row ${index + 2}: Invalid email format`)
-            return
+            errors.push(`Row ${i + 1}: Invalid email format`)
+            continue
           }
           
-          const newClient: Client = {
-            id: Math.max(...clients.map(c => c.id), 0) + importedClients.length + 1,
+          const clientDoc = {
             name: clientData.name,
             email: clientData.email,
             phone: clientData.phone,
             company: clientData.company || '',
-            tier: (['Platinum', 'Gold', 'Silver', 'Bronze'].includes(clientData.tier) ? clientData.tier : 'Bronze') as Client['tier'],
-            status: (['Active', 'Inactive', 'Suspended'].includes(clientData.status) ? clientData.status : 'Active') as Client['status'],
+            tier: (['Platinum', 'Gold', 'Silver', 'Bronze'].includes(clientData.tier) ? clientData.tier : 'Bronze'),
+            status: (['Active', 'Inactive', 'Suspended'].includes(clientData.status) ? clientData.status : 'Active'),
             location: clientData.location || '',
             joinDate: clientData.joindate || new Date().toISOString().split('T')[0],
             totalSpent: parseFloat(clientData.totalspent) || 0,
             projects: parseInt(clientData.projects) || 0,
             lastService: clientData.lastservice || 'No service yet',
             notes: clientData.notes || '',
-            contracts: []
+            contracts: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
           }
           
-          importedClients.push(newClient)
-        })
+          try {
+            await addDoc(collection(db, 'clients'), clientDoc)
+          } catch (error) {
+            errors.push(`Row ${i + 1}: Failed to save to database`)
+          }
+        }
         
-        setClients([...clients, ...importedClients])
         setImportResults({
-          success: importedClients.length,
+          success: lines.length - 1 - errors.length,
           errors: errors.length,
           messages: errors.length > 0 ? errors.slice(0, 5) : ['Import completed successfully']
         })
@@ -458,7 +592,7 @@ export default function ClientProfiles() {
       }
     }
     reader.readAsText(file)
-  }, [clients])
+  }, [])
 
   const handleExportClients = useCallback(() => {
     const headers = [
@@ -527,6 +661,7 @@ export default function ClientProfiles() {
           <button
             onClick={handleExportClients}
             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+            disabled={clients.length === 0}
           >
             <FileDown className="h-4 w-4" />
             Export CSV
@@ -540,6 +675,7 @@ export default function ClientProfiles() {
           </button>
         </div>
       </div>
+      
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -695,204 +831,234 @@ export default function ClientProfiles() {
 
       {/* Clients Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center gap-1">
-                    Client
-                    {sortConfig.key === 'name' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('company')}
-                >
-                  <div className="flex items-center gap-1">
-                    Company
-                    {sortConfig.key === 'company' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('tier')}
-                >
-                  <div className="flex items-center gap-1">
-                    Tier
-                    {sortConfig.key === 'tier' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center gap-1">
-                    Status
-                    {sortConfig.key === 'status' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('totalSpent')}
-                >
-                  <div className="flex items-center gap-1">
-                    Total Spent
-                    {sortConfig.key === 'totalSpent' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('projects')}
-                >
-                  <div className="flex items-center gap-1">
-                    Projects
-                    {sortConfig.key === 'projects' && (
-                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                    )}
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Service
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-700">
-                          {client.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{client.name}</div>
-                        <div className="text-sm text-gray-500">{client.location}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{client.company}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{client.email}</div>
-                    <div className="text-sm text-gray-500">{client.phone}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      client.tier === 'Platinum' ? 'bg-purple-100 text-purple-800' :
-                      client.tier === 'Gold' ? 'bg-yellow-100 text-yellow-800' :
-                      client.tier === 'Silver' ? 'bg-gray-100 text-gray-800' :
-                      'bg-orange-100 text-orange-800'
-                    }`}>
-                      {client.tier}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      client.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      client.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {client.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    AED {(client.totalSpent / 1000).toFixed(0)}K
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {client.projects}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {client.lastService}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedClient(client)
-                          setShowDetails(true)
-                        }}
-                        className="text-blue-600 hover:text-blue-900 p-1"
-                        title="View details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClient(client.id)}
-                        className="text-red-600 hover:text-red-900 p-1"
-                        title="Delete client"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="bg-white px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedClients.length)} of {filteredAndSortedClients.length} clients
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-1 border rounded text-sm ${
-                      currentPage === pageNum
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                )
-              })}
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
+        {clients.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Clients Found</h3>
+            <p className="text-gray-600 mb-6">Start by adding your first client or check if you have "Won" status leads</p>
+            <button
+              onClick={() => setShowAddClient(true)}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors inline-flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add First Client
+            </button>
           </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('name')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Client
+                        {sortConfig.key === 'name' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('company')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Company
+                        {sortConfig.key === 'company' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('tier')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Tier
+                        {sortConfig.key === 'tier' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Status
+                        {sortConfig.key === 'status' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('totalSpent')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Total Spent
+                        {sortConfig.key === 'totalSpent' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('projects')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Projects
+                        {sortConfig.key === 'projects' && (
+                          sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Service
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedClients.map((client) => (
+                    <tr key={client.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-700">
+                              {client.name.split(' ').map(n => n[0]).join('')}
+                            </span>
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">{client.name}</div>
+                            <div className="text-sm text-gray-500">{client.location}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{client.company}</div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{client.email}</div>
+                        <div className="text-sm text-gray-500">{client.phone}</div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          client.tier === 'Platinum' ? 'bg-purple-100 text-purple-800' :
+                          client.tier === 'Gold' ? 'bg-yellow-100 text-yellow-800' :
+                          client.tier === 'Silver' ? 'bg-gray-100 text-gray-800' :
+                          'bg-orange-100 text-orange-800'
+                        }`}>
+                          {client.tier}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          client.status === 'Active' ? 'bg-green-100 text-green-800' :
+                          client.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {client.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        AED {(client.totalSpent / 1000).toFixed(0)}K
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {client.projects}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {client.lastService}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedClient(client)
+                              setShowDetails(true)
+                            }}
+                            className="text-blue-600 hover:text-blue-900 p-1"
+                            title="View details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          
+                          {/* EDIT BUTTON - YEH ADD KIYA HAI */}
+                          <button
+                            onClick={() => {
+                              setEditingClient(client)
+                              setShowEditClient(true)
+                            }}
+                            className="text-green-600 hover:text-green-900 p-1"
+                            title="Edit client"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDeleteClient(client.id, client.source, client.firebaseId)}
+                            className="text-red-600 hover:text-red-900 p-1"
+                            title="Delete client"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="bg-white px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedClients.length)} of {filteredAndSortedClients.length} clients
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-1 border rounded text-sm ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -926,24 +1092,31 @@ export default function ClientProfiles() {
                     Active Contracts
                   </h3>
                   <div className="space-y-4">
-                    {selectedClient.contracts.map((contract: any, idx: number) => (
-                      <div key={idx} className="bg-gray-50 border border-gray-300 rounded-2xl p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center border border-blue-300">
-                            <Briefcase className="h-5 w-5 text-blue-700" />
+                    {selectedClient.contracts && selectedClient.contracts.length > 0 ? (
+                      selectedClient.contracts.map((contract: any, idx: number) => (
+                        <div key={`${selectedClient.id}_contract_${idx}`} className="bg-gray-50 border border-gray-300 rounded-2xl p-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center border border-blue-300">
+                              <Briefcase className="h-5 w-5 text-blue-700" />
+                            </div>
+                            <div>
+                              <p className="font-black text-gray-900">{contract.name}</p>
+                              <p className="text-xs text-gray-600 font-bold uppercase tracking-widest mt-1">AED {contract.value.toLocaleString()}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-black text-gray-900">{contract.name}</p>
-                            <p className="text-xs text-gray-600 font-bold uppercase tracking-widest mt-1">AED {contract.value.toLocaleString()}</p>
-                          </div>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                            contract.status === 'Active' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-gray-300 text-gray-800 border border-gray-400'
+                          }`}>
+                            {contract.status}
+                          </span>
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                          contract.status === 'Active' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-gray-300 text-gray-800 border border-gray-400'
-                        }`}>
-                          {contract.status}
-                        </span>
+                      ))
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-300 rounded-2xl p-8 text-center">
+                        <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">No active contracts found</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -955,7 +1128,7 @@ export default function ClientProfiles() {
                   </h3>
                   <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6">
                     <p className="text-gray-700 leading-relaxed whitespace-pre-line font-medium">
-                      {selectedClient.notes}
+                      {selectedClient.notes || 'No notes available for this client.'}
                     </p>
                   </div>
                 </div>
@@ -964,14 +1137,21 @@ export default function ClientProfiles() {
               <div className="space-y-6">
                 <div className="bg-gray-50 border border-gray-300 rounded-2xl p-6 space-y-6">
                   <h4 className="text-sm font-black text-gray-600 uppercase tracking-widest">Quick Actions</h4>
-                  <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                  <button 
+                    onClick={() => {
+                      setShowDetails(false)
+                      setEditingClient(selectedClient)
+                      setShowEditClient(true)
+                    }}
+                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
                     <Edit2 className="h-4 w-4" /> Edit Profile
                   </button>
                   <button className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-gray-400">
                     <Download className="h-4 w-4" /> Export History
                   </button>
                   <button 
-                    onClick={() => handleDeleteClient(selectedClient.id)}
+                    onClick={() => handleDeleteClient(selectedClient.id, selectedClient.source, selectedClient.firebaseId)}
                     className="w-full py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-red-300"
                   >
                     <Trash2 className="h-4 w-4" /> Delete Client
@@ -1107,7 +1287,7 @@ export default function ClientProfiles() {
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
-                    <option value="Prospect">Prospect</option>
+                    <option value="Suspended">Suspended</option>
                   </select>
                 </div>
               </div>
@@ -1147,6 +1327,171 @@ export default function ClientProfiles() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   Add Client
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {showEditClient && editingClient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Edit Client: {editingClient.name}</h2>
+              <button onClick={() => {
+                setShowEditClient(false)
+                setEditingClient(null)
+              }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              handleEditClient(editingClient, {
+                name: editingClient.name,
+                company: editingClient.company,
+                email: editingClient.email,
+                phone: editingClient.phone,
+                location: editingClient.location,
+                totalSpent: editingClient.totalSpent,
+                projects: editingClient.projects,
+                tier: editingClient.tier,
+                status: editingClient.status,
+                notes: editingClient.notes
+              })
+            }} className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingClient.name}
+                    onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Full name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editingClient.email}
+                    onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingClient.phone}
+                    onChange={(e) => setEditingClient({...editingClient, phone: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="+971 XX XXX XXXX"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                  <input
+                    type="text"
+                    value={editingClient.company}
+                    onChange={(e) => setEditingClient({...editingClient, company: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tier</label>
+                  <select
+                    value={editingClient.tier}
+                    onChange={(e) => setEditingClient({...editingClient, tier: e.target.value as Client['tier']})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Platinum">Platinum</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Bronze">Bronze</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    value={editingClient.status}
+                    onChange={(e) => setEditingClient({...editingClient, status: e.target.value as Client['status']})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Total Spent (AED)</label>
+                  <input
+                    type="number"
+                    value={editingClient.totalSpent}
+                    onChange={(e) => setEditingClient({...editingClient, totalSpent: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Total amount spent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Projects</label>
+                  <input
+                    type="number"
+                    value={editingClient.projects}
+                    onChange={(e) => setEditingClient({...editingClient, projects: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Number of projects"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <input
+                  type="text"
+                  value={editingClient.location}
+                  onChange={(e) => setEditingClient({...editingClient, location: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="City, Country"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea
+                  value={editingClient.notes}
+                  onChange={(e) => setEditingClient({...editingClient, notes: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Additional notes about the client"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditClient(false)
+                    setEditingClient(null)
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  Update Client
                 </button>
               </div>
             </form>

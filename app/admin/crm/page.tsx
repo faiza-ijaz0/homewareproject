@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, DragEvent } from 'react'
 import { 
   Plus, 
   Trash2, 
@@ -17,423 +17,152 @@ import {
   Filter,
   Kanban,
   Users,
-  ArrowUpRight,
-  ArrowRight,
-  MoreVertical,
   Eye,
-  UserPlus,
   Database,
   Sparkles,
   Brain,
   UserCheck,
-  Zap
+  Zap,
+  Save,
+  Edit2
 } from 'lucide-react'
 
+// Firebase imports
+import { db } from '@/lib/firebase'
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  orderBy, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  deleteDoc,
+  serverTimestamp,
+  Timestamp 
+} from 'firebase/firestore'
+
 interface Lead {
-  id: number
-  name: string
-  company: string
-  status: string
-  value: number
-  daysInStage: number
-  priority: string
-  email: string
-  phone: string
-  tier: string
-  joinDate: string
-  address: string
-  industry: string
-  source: string[]
-  lastContact: string
-  notes: string
-  website: string
-  employees: number
-  annualRevenue: string
-  secondaryContacts: Array<{ name: string; role: string; email: string; phone: string }>
-  linkedin?: string
-  twitter?: string
-  instagram?: string
-  budgetRange: string
-  decisionTimeline: string
-  painPoints: string
-  goals: string
-  competitors: string
+  id: string;
+  name: string;
+  company: string;
+  status: 'Contacter' | 'Negotiation' | 'Contacted' | 'Qualified' | 'Won' | 'New';
+  value: number;
+  daysInStage: number;
+  priority: 'High' | 'Medium' | 'Low';
+  email: string;
+  phone: string;
+  tier: string;
+  joinDate: string;
+  address: string;
+  industry: string;
+  source: string[];
+  lastContact: string;
+  notes: string;
+  website: string;
+  employees: number;
+  annualRevenue: string;
+  secondaryContacts: Array<{ name: string; role: string; email: string; phone: string }>;
+  linkedin?: string;
+  twitter?: string;
+  instagram?: string;
+  budgetRange: string;
+  decisionTimeline: string;
+  painPoints: string;
+  goals: string;
+  competitors: string;
   currentContract: {
-    startDate: string
-    endDate: string
-    value: number
-    services: string[]
-  } | null
-  serviceHistory: Array<{ date: string; service: string; value: number; rating: number }>
-  preferredContactMethod: string
-  preferredContactTime: string
-  timezone: string
-  language: string
-  paymentTerms: string
-  creditLimit: number
-  outstandingBalance: number
-  lastPaymentDate: string | null
-  satisfactionScore: number | null
-  responseTime: string
-  contractRenewalProbability: number | null
-  lifetimeValue: number
+    startDate: string;
+    endDate: string;
+    value: number;
+    services: string[];
+  } | null;
+  serviceHistory: Array<{ date: string; service: string; value: number; rating: number }>;
+  preferredContactMethod: string;
+  preferredContactTime: string;
+  timezone: string;
+  language: string;
+  paymentTerms: string;
+  creditLimit: number;
+  outstandingBalance: number;
+  lastPaymentDate: string | null;
+  satisfactionScore: number | null;
+  responseTime: string;
+  contractRenewalProbability: number | null;
+  lifetimeValue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface StageData {
+  stage: string;
+  leads: Lead[];
+  total: number;
+  count: number;
+}
+
+interface EnhancedData {
+  selectedLeadId: string | null;
+  address: string;
+  industry: string;
+  website: string;
+  employees: string;
+  annualRevenue: string;
+  linkedin: string;
+  twitter: string;
+  instagram: string;
+  budgetRange: string;
+  decisionTimeline: string;
+  painPoints: string;
+  goals: string;
+  competitors: string;
+  preferredContactMethod: string;
+  preferredContactTime: string;
+  timezone: string;
+  language: string;
+  paymentTerms: string;
+  creditLimit: string;
+  secondaryContacts: Array<{ name: string; role: string; email: string; phone: string }>;
+}
+
+interface AIPersona {
+  name: string;
+  company: string;
+  title: string;
+  industry: string;
+  employees: number;
+  budgetRange: string;
+  painPoints: string;
+  goals: string;
+  address: string;
+  email: string;
+  phone: string;
+  dealValue: number;
+  source: string;
 }
 
 export default function UnifiedCRMDashboard() {
-  const [leads, setLeads] = useState<Lead[]>([
-    {
-      id: 1,
-      name: 'Ahmed Al-Mansouri',
-      company: 'Dubai Properties LLC',
-      status: 'Qualified',
-      value: 75000,
-      daysInStage: 3,
-      priority: 'High',
-      email: 'ahmed@dubaiprop.ae',
-      phone: '+971-50-1111111',
-      tier: 'Gold',
-      joinDate: '2024-01-15',
-      address: 'Business Bay, Dubai, UAE',
-      industry: 'Real Estate',
-      source: ['Website Inquiry'],
-      lastContact: '2025-12-20',
-      notes: 'Interested in premium cleaning services for their office complex. Multiple properties under management.',
-      website: 'www.dubaiprop.ae',
-      employees: 150,
-      annualRevenue: '50M AED',
-      // Enhanced contact information
-      secondaryContacts: [
-        { name: 'Sarah Al-Mansouri', role: 'Operations Manager', email: 'sarah@dubaiprop.ae', phone: '+971-50-1111112' }
-      ],
-      // Social media and online presence
-      linkedin: 'linkedin.com/company/dubaiproperties',
-      twitter: '@dubaiproperties',
-      // Business intelligence
-      budgetRange: '50K-100K AED/month',
-      decisionTimeline: '2-3 months',
-      painPoints: 'Inconsistent cleaning quality, high turnover of cleaning staff',
-      goals: 'Improve tenant satisfaction, reduce maintenance costs',
-      competitors: 'CleanCorp, ShineServices',
-      // Contract and service details
-      currentContract: {
-        startDate: '2024-02-01',
-        endDate: '2025-01-31',
-        value: 75000,
-        services: ['Office Cleaning', 'Common Area Maintenance', 'Restroom Sanitization']
-      },
-      serviceHistory: [
-        { date: '2024-06-15', service: 'Deep Cleaning', value: 2500, rating: 5 },
-        { date: '2024-09-20', service: 'Emergency Cleaning', value: 1800, rating: 4 }
-      ],
-      // Communication preferences
-      preferredContactMethod: 'Email',
-      preferredContactTime: '9:00 AM - 11:00 AM',
-      timezone: 'GST (UTC+4)',
-      language: 'English, Arabic',
-      // Financial information
-      paymentTerms: 'Net 30 days',
-      creditLimit: 100000,
-      outstandingBalance: 12500,
-      lastPaymentDate: '2025-12-15',
-      // Analytics and metrics
-      satisfactionScore: 4.8,
-      responseTime: '2 hours',
-      contractRenewalProbability: 85,
-      lifetimeValue: 225000
-    },
-    {
-      id: 2,
-      name: 'Fatima Al-Noor',
-      company: 'Al Noor Logistics',
-      status: 'Contacted',
-      value: 45000,
-      daysInStage: 5,
-      priority: 'Medium',
-      email: 'fatima@alnoor.ae',
-      phone: '+971-50-2222222',
-      tier: 'Silver',
-      joinDate: '2024-02-20',
-      address: 'Jebel Ali Free Zone, Dubai, UAE',
-      industry: 'Logistics & Transportation',
-      source: ['LinkedIn'],
-      lastContact: '2025-12-18',
-      notes: 'Needs warehouse cleaning services, budget constraints mentioned. Large facility with multiple shifts.',
-      website: 'www.alnoor.ae',
-      employees: 75,
-      annualRevenue: '25M AED',
-      // Enhanced contact information
-      secondaryContacts: [
-        { name: 'Omar Al-Noor', role: 'Warehouse Manager', email: 'omar@alnoor.ae', phone: '+971-50-2222223' },
-        { name: 'Layla Ahmed', role: 'HR Manager', email: 'layla@alnoor.ae', phone: '+971-50-2222224' }
-      ],
-      // Social media and online presence
-      linkedin: 'linkedin.com/company/alnoorlogistics',
-      // Business intelligence
-      budgetRange: '30K-60K AED/month',
-      decisionTimeline: '1-2 months',
-      painPoints: 'Dust accumulation in warehouse, safety compliance issues',
-      goals: 'Maintain clean work environment, comply with health regulations',
-      competitors: 'LogiClean, WareHousePro',
-      // Contract and service details
-      currentContract: null,
-      serviceHistory: [],
-      // Communication preferences
-      preferredContactMethod: 'WhatsApp',
-      preferredContactTime: '2:00 PM - 4:00 PM',
-      timezone: 'GST (UTC+4)',
-      language: 'Arabic, English',
-      // Financial information
-      paymentTerms: 'Net 15 days',
-      creditLimit: 50000,
-      outstandingBalance: 0,
-      lastPaymentDate: null,
-      // Analytics and metrics
-      satisfactionScore: null,
-      responseTime: '4 hours',
-      contractRenewalProbability: null,
-      lifetimeValue: 45000
-    },
-    {
-      id: 3,
-      name: 'Layla Hassan',
-      company: 'Paradise Hotels',
-      status: 'Proposal',
-      value: 120000,
-      daysInStage: 2,
-      priority: 'High',
-      email: 'layla@paradisehotels.ae',
-      phone: '+971-50-3333333',
-      tier: 'Gold',
-      joinDate: '2024-03-10',
-      address: 'Jumeirah Beach, Dubai, UAE',
-      industry: 'Hospitality',
-      source: ['Referral'],
-      lastContact: '2025-12-22',
-      notes: 'Very excited about our proposal, multiple properties to service. High-end hotel chain with luxury standards.',
-      website: 'www.paradisehotels.ae',
-      employees: 200,
-      annualRevenue: '80M AED',
-      // Enhanced contact information
-      secondaryContacts: [
-        { name: 'Ahmed Hassan', role: 'General Manager', email: 'ahmed.h@paradisehotels.ae', phone: '+971-50-3333334' },
-        { name: 'Maria Rodriguez', role: 'Housekeeping Director', email: 'maria@paradisehotels.ae', phone: '+971-50-3333335' }
-      ],
-      // Social media and online presence
-      linkedin: 'linkedin.com/company/paradisehotels',
-      twitter: '@paradisehotels',
-      instagram: '@paradisehotels',
-      // Business intelligence
-      budgetRange: '80K-150K AED/month',
-      decisionTimeline: '3-4 weeks',
-      painPoints: 'Guest complaints about room cleanliness, staff training needs',
-      goals: 'Achieve 5-star cleanliness ratings, improve guest satisfaction scores',
-      competitors: 'LuxuryClean, HotelShine',
-      // Contract and service details
-      currentContract: {
-        startDate: '2024-04-01',
-        endDate: '2025-03-31',
-        value: 120000,
-        services: ['Room Cleaning', 'Public Area Maintenance', 'Pool Area Cleaning', 'Spa Cleaning']
-      },
-      serviceHistory: [
-        { date: '2024-07-10', service: 'Deep Cleaning Campaign', value: 8500, rating: 5 },
-        { date: '2024-10-05', service: 'Emergency Deep Clean', value: 3200, rating: 5 }
-      ],
-      // Communication preferences
-      preferredContactMethod: 'Phone',
-      preferredContactTime: '8:00 AM - 10:00 AM',
-      timezone: 'GST (UTC+4)',
-      language: 'English, Spanish, Arabic',
-      // Financial information
-      paymentTerms: 'Net 30 days',
-      creditLimit: 200000,
-      outstandingBalance: 25000,
-      lastPaymentDate: '2025-12-01',
-      // Analytics and metrics
-      satisfactionScore: 4.9,
-      responseTime: '1 hour',
-      contractRenewalProbability: 95,
-      lifetimeValue: 480000
-    },
-    {
-      id: 4,
-      name: 'Hassan Khan',
-      company: 'Khan Consulting',
-      status: 'New',
-      value: 50000,
-      daysInStage: 1,
-      priority: 'Medium',
-      email: 'hassan@khanconsult.ae',
-      phone: '+971-50-4444444',
-      tier: 'Bronze',
-      joinDate: '2024-04-05',
-      address: 'Al Barsha, Dubai, UAE',
-      industry: 'Consulting',
-      source: ['Cold Call'],
-      lastContact: '2025-12-15',
-      notes: 'New client, exploring cleaning services for office. Small consulting firm with modern office space.',
-      website: 'www.khanconsult.ae',
-      employees: 25,
-      annualRevenue: '8M AED',
-      // Enhanced contact information
-      secondaryContacts: [],
-      // Social media and online presence
-      linkedin: 'linkedin.com/in/hassankhan',
-      // Business intelligence
-      budgetRange: '15K-30K AED/month',
-      decisionTimeline: '4-6 weeks',
-      painPoints: 'Limited budget, need cost-effective solutions',
-      goals: 'Maintain professional office appearance, improve employee productivity',
-      competitors: 'OfficeClean, BizShine',
-      // Contract and service details
-      currentContract: null,
-      serviceHistory: [],
-      // Communication preferences
-      preferredContactMethod: 'Email',
-      preferredContactTime: '10:00 AM - 12:00 PM',
-      timezone: 'GST (UTC+4)',
-      language: 'English, Urdu',
-      // Financial information
-      paymentTerms: 'Net 30 days',
-      creditLimit: 25000,
-      outstandingBalance: 0,
-      lastPaymentDate: null,
-      // Analytics and metrics
-      satisfactionScore: null,
-      responseTime: '6 hours',
-      contractRenewalProbability: null,
-      lifetimeValue: 50000
-    },
-    {
-      id: 5,
-      name: 'Sara Ali',
-      company: 'Ali Trading',
-      status: 'Negotiation',
-      value: 95000,
-      daysInStage: 8,
-      priority: 'High',
-      email: 'sara@alitrading.ae',
-      phone: '+971-50-5555555',
-      tier: 'Silver',
-      joinDate: '2024-05-12',
-      address: 'Deira, Dubai, UAE',
-      industry: 'Trading & Commerce',
-      source: ['Trade Show'],
-      lastContact: '2025-12-21',
-      notes: 'In negotiation phase, price sensitivity is key. Large showroom and warehouse space.',
-      website: 'www.alitrading.ae',
-      employees: 45,
-      annualRevenue: '30M AED',
-      // Enhanced contact information
-      secondaryContacts: [
-        { name: 'Ahmed Ali', role: 'Operations Director', email: 'ahmed@alitrading.ae', phone: '+971-50-5555556' }
-      ],
-      // Social media and online presence
-      linkedin: 'linkedin.com/company/alitrading',
-      // Business intelligence
-      budgetRange: '60K-120K AED/month',
-      decisionTimeline: '2-4 weeks',
-      painPoints: 'Showroom dust, warehouse cleanliness affecting product quality',
-      goals: 'Create professional showroom environment, maintain product quality standards',
-      competitors: 'TradeClean, CommerceShine',
-      // Contract and service details
-      currentContract: null,
-      serviceHistory: [
-        { date: '2024-08-15', service: 'Showroom Deep Clean', value: 4200, rating: 4 }
-      ],
-      // Communication preferences
-      preferredContactMethod: 'Email',
-      preferredContactTime: '11:00 AM - 1:00 PM',
-      timezone: 'GST (UTC+4)',
-      language: 'Arabic, English',
-      // Financial information
-      paymentTerms: 'Net 21 days',
-      creditLimit: 100000,
-      outstandingBalance: 0,
-      lastPaymentDate: null,
-      // Analytics and metrics
-      satisfactionScore: 4.2,
-      responseTime: '3 hours',
-      contractRenewalProbability: 70,
-      lifetimeValue: 95000
-    },
-    {
-      id: 6,
-      name: 'Mohammed Hassan',
-      company: 'Hassan Group',
-      status: 'Won',
-      value: 180000,
-      daysInStage: 0,
-      priority: 'High',
-      email: 'mo@hassangroup.ae',
-      phone: '+971-50-6666666',
-      tier: 'Platinum',
-      joinDate: '2024-06-01',
-      address: 'Dubai Marina, Dubai, UAE',
-      industry: 'Construction',
-      source: ['Existing Client'],
-      lastContact: '2025-12-23',
-      notes: 'Long-term client, excellent payment history. Large construction company with multiple sites.',
-      website: 'www.hassangroup.ae',
-      employees: 300,
-      annualRevenue: '150M AED',
-      // Enhanced contact information
-      secondaryContacts: [
-        { name: 'Fatima Hassan', role: 'Finance Director', email: 'fatima.h@hassangroup.ae', phone: '+971-50-6666667' },
-        { name: 'Omar Hassan', role: 'Site Manager', email: 'omar.h@hassangroup.ae', phone: '+971-50-6666668' },
-        { name: 'Layla Mahmoud', role: 'HR Manager', email: 'layla.m@hassangroup.ae', phone: '+971-50-6666669' }
-      ],
-      // Social media and online presence
-      linkedin: 'linkedin.com/company/hassangroup',
-      twitter: '@hassangroup',
-      // Business intelligence
-      budgetRange: '150K-250K AED/month',
-      decisionTimeline: '1-2 months',
-      painPoints: 'Construction site cleanliness, safety compliance, dust control',
-      goals: 'Maintain safe work environment, comply with regulations, improve site productivity',
-      competitors: 'BuildClean, SiteShine',
-      // Contract and service details
-      currentContract: {
-        startDate: '2024-07-01',
-        endDate: '2025-06-30',
-        value: 180000,
-        services: ['Construction Site Cleaning', 'Office Cleaning', 'Equipment Cleaning', 'Waste Management']
-      },
-      serviceHistory: [
-        { date: '2024-09-01', service: 'Monthly Site Cleaning', value: 15000, rating: 5 },
-        { date: '2024-10-01', service: 'Monthly Site Cleaning', value: 15000, rating: 5 },
-        { date: '2024-11-01', service: 'Monthly Site Cleaning', value: 15000, rating: 5 },
-        { date: '2024-12-01', service: 'Monthly Site Cleaning', value: 15000, rating: 5 }
-      ],
-      // Communication preferences
-      preferredContactMethod: 'Phone',
-      preferredContactTime: '7:00 AM - 9:00 AM',
-      timezone: 'GST (UTC+4)',
-      language: 'Arabic, English, Urdu',
-      // Financial information
-      paymentTerms: 'Net 15 days',
-      creditLimit: 300000,
-      outstandingBalance: 45000,
-      lastPaymentDate: '2025-12-20',
-      // Analytics and metrics
-      satisfactionScore: 4.9,
-      responseTime: '30 minutes',
-      contractRenewalProbability: 98,
-      lifetimeValue: 720000
-    },
-  ])
-
-  const [selectedLead, setSelectedLead] = useState<any>(null)
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [showNewForm, setShowNewForm] = useState(false)
   const [showEnhancedDataForm, setShowEnhancedDataForm] = useState(false)
-  const [draggedLead, setDraggedLead] = useState<any>(null)
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterPriority, setFilterPriority] = useState('all')
+  const [filterPriority, setFilterPriority] = useState<string>('all')
   const [showAIPersonaModal, setShowAIPersonaModal] = useState(false)
-  const [aiPersonaResults, setAiPersonaResults] = useState<any[]>([])
+  const [aiPersonaResults, setAiPersonaResults] = useState<AIPersona[]>([])
   const [isGeneratingPersonas, setIsGeneratingPersonas] = useState(false)
-  const [formData, setFormData] = useState({ name: '', company: '', value: '', priority: 'Medium', email: '', phone: '', sources: [] as string[] })
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    company: '', 
+    value: '', 
+    priority: 'Medium' as 'High' | 'Medium' | 'Low',
+    status: 'New' as Lead['status'],
+    email: '', 
+    phone: '', 
+    sources: [] as string[] 
+  })
   const [availableSources] = useState([
     'Social Media',
     'Google Ads',
@@ -450,8 +179,8 @@ export default function UnifiedCRMDashboard() {
     'Content Marketing',
     'Other'
   ])
-  const [enhancedData, setEnhancedData] = useState({
-    selectedLeadId: null as number | null,
+  const [enhancedData, setEnhancedData] = useState<EnhancedData>({
+    selectedLeadId: null,
     address: '',
     industry: '',
     website: '',
@@ -471,196 +200,215 @@ export default function UnifiedCRMDashboard() {
     language: 'English',
     paymentTerms: 'Net 30 days',
     creditLimit: '',
-    secondaryContacts: [] as Array<{ name: string; role: string; email: string; phone: string }>
+    secondaryContacts: []
   })
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editFormData, setEditFormData] = useState<{
+    id: string;
+    name: string;
+    company: string;
+    value: string;
+    status: Lead['status'];
+    priority: Lead['priority'];
+    email: string;
+    phone: string;
+    sources: string[];
+  } | null>(null)
 
-  const stages = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won']
+  const stages = ['Contacter', 'Contacted', 'Qualified', 'Negotiation', 'Won', 'New'] as const
 
-  const leadsByStage = useMemo(() => {
+  // Firebase se data fetch
+  useEffect(() => {
+    fetchLeads()
+  }, [])
+
+  const fetchLeads = async () => {
+    try {
+      const leadsRef = collection(db, 'leads')
+      const q = query(leadsRef, orderBy('createdAt', 'desc'))
+      const querySnapshot = await getDocs(q)
+      
+      const leadsData: Lead[] = []
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data()
+        
+        const lead: Lead = {
+          id: doc.id,
+          name: data.name || '',
+          company: data.company || '',
+          status: (data.status || 'New') as Lead['status'],
+          value: data.value || 0,
+          daysInStage: data.daysInStage || 0,
+          priority: (data.priority || 'Medium') as Lead['priority'],
+          email: data.email || '',
+          phone: data.phone || '',
+          tier: data.tier || 'Bronze',
+          joinDate: data.joinDate || new Date().toISOString().split('T')[0],
+          address: data.address || '',
+          industry: data.industry || '',
+          source: data.source || [],
+          lastContact: data.lastContact || new Date().toISOString().split('T')[0],
+          notes: data.notes || '',
+          website: data.website || '',
+          employees: data.employees || 0,
+          annualRevenue: data.annualRevenue || '0 AED',
+          secondaryContacts: data.secondaryContacts || [],
+          linkedin: data.linkedin || '',
+          twitter: data.twitter || '',
+          instagram: data.instagram || '',
+          budgetRange: data.budgetRange || '',
+          decisionTimeline: data.decisionTimeline || '',
+          painPoints: data.painPoints || '',
+          goals: data.goals || '',
+          competitors: data.competitors || '',
+          currentContract: data.currentContract || null,
+          serviceHistory: data.serviceHistory || [],
+          preferredContactMethod: data.preferredContactMethod || 'Email',
+          preferredContactTime: data.preferredContactTime || '',
+          timezone: data.timezone || 'GST (UTC+4)',
+          language: data.language || 'English',
+          paymentTerms: data.paymentTerms || 'Net 30 days',
+          creditLimit: data.creditLimit || 0,
+          outstandingBalance: data.outstandingBalance || 0,
+          lastPaymentDate: data.lastPaymentDate || null,
+          satisfactionScore: data.satisfactionScore || null,
+          responseTime: data.responseTime || '',
+          contractRenewalProbability: data.contractRenewalProbability || null,
+          lifetimeValue: data.lifetimeValue || 0,
+          createdAt: formatFirebaseTimestamp(data.createdAt),
+          updatedAt: formatFirebaseTimestamp(data.updatedAt)
+        }
+        
+        leadsData.push(lead)
+      })
+      
+      setLeads(leadsData)
+    } catch (error) {
+      console.error('Error fetching leads:', error)
+    }
+  }
+
+  // Firebase timestamp ko format karna
+  const formatFirebaseTimestamp = (timestamp: any): string => {
+    if (!timestamp) return new Date().toISOString().split('T')[0]
+    
+    if (timestamp.toDate) {
+      return timestamp.toDate().toISOString().split('T')[0]
+    }
+    
+    if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000).toISOString().split('T')[0]
+    }
+    
+    return timestamp as string
+  }
+
+  const leadsByStage = useMemo((): StageData[] => {
     return stages.map(stage => ({
       stage,
-      leads: leads.filter(l => l.status === stage && (searchTerm === '' || l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.company.toLowerCase().includes(searchTerm.toLowerCase())) && (filterPriority === 'all' || l.priority === filterPriority)),
-      total: leads.filter(l => l.status === stage && (searchTerm === '' || l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.company.toLowerCase().includes(searchTerm.toLowerCase())) && (filterPriority === 'all' || l.priority === filterPriority)).reduce((sum, l) => sum + l.value, 0),
-      count: leads.filter(l => l.status === stage && (searchTerm === '' || l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.company.toLowerCase().includes(searchTerm.toLowerCase())) && (filterPriority === 'all' || l.priority === filterPriority)).length,
+      leads: leads.filter(l => 
+        l.status === stage && 
+        (searchTerm === '' || 
+          l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          l.company.toLowerCase().includes(searchTerm.toLowerCase())) && 
+        (filterPriority === 'all' || l.priority === filterPriority)
+      ),
+      total: leads.filter(l => 
+        l.status === stage && 
+        (searchTerm === '' || 
+          l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          l.company.toLowerCase().includes(searchTerm.toLowerCase())) && 
+        (filterPriority === 'all' || l.priority === filterPriority)
+      ).reduce((sum, l) => sum + l.value, 0),
+      count: leads.filter(l => 
+        l.status === stage && 
+        (searchTerm === '' || 
+          l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          l.company.toLowerCase().includes(searchTerm.toLowerCase())) && 
+        (filterPriority === 'all' || l.priority === filterPriority)
+      ).length,
     }))
   }, [leads, searchTerm, filterPriority])
 
-  const handleMoveStage = useCallback((lead: any, newStage: any) => {
-    setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStage, daysInStage: 0 } : l))
-  }, [leads])
-
-  const handleDeleteLead = useCallback((leadId: any) => {
-    setLeads(leads.filter(l => l.id !== leadId))
-    setShowLeadModal(false)
-  }, [leads])
-
-  const handleAddNewLead = () => {
-    if (formData.name && formData.company && formData.value) {
-      const newLead = {
-        id: Math.max(...leads.map(l => l.id), 0) + 1,
-        name: formData.name,
-        company: formData.company,
-        status: 'New',
-        value: parseInt(formData.value),
-        daysInStage: 0,
-        priority: formData.priority,
-        email: formData.email,
-        phone: formData.phone,
-        tier: 'Bronze',
-        joinDate: new Date().toISOString().split('T')[0],
-        address: '',
-        industry: '',
-        source: formData.sources.length > 0 ? formData.sources : ['Manual Entry'],
-        lastContact: new Date().toISOString().split('T')[0],
-        notes: '',
-        website: '',
-        employees: 0,
-        annualRevenue: '0 AED',
-        secondaryContacts: [],
-        linkedin: '',
-        twitter: '',
-        instagram: '',
-        budgetRange: '',
-        decisionTimeline: '',
-        painPoints: '',
-        goals: '',
-        competitors: '',
-        currentContract: null,
-        serviceHistory: [],
-        preferredContactMethod: 'Email',
-        preferredContactTime: '',
-        timezone: 'GST (UTC+4)',
-        language: 'English',
-        paymentTerms: 'Net 30 days',
-        creditLimit: 0,
-        outstandingBalance: 0,
-        lastPaymentDate: null,
-        satisfactionScore: null,
-        responseTime: '',
-        contractRenewalProbability: null,
-        lifetimeValue: parseInt(formData.value)
-      }
-      setLeads([...leads, newLead])
-      setFormData({ name: '', company: '', value: '', priority: 'Medium', email: '', phone: '', sources: [] })
-      setShowNewForm(false)
-    }
-  }
-
-  const handleDragStart = (e: any, lead: any) => {
-    setDraggedLead(lead)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e: any) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDrop = (e: any, stageData: any) => {
-    e.preventDefault()
-    if (draggedLead && draggedLead.status !== stageData.stage) {
-      handleMoveStage(draggedLead, stageData.stage)
-    }
-    setDraggedLead(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedLead(null)
-  }
-
-  const generateAIPersonas = async () => {
-    setIsGeneratingPersonas(true)
+  const handleMoveStage = useCallback(async (lead: Lead, newStage: string) => {
     try {
-      // Analyze existing leads to identify patterns and create new persona-based leads
-      const existingPersonas = leads.map(lead => ({
-        industry: lead.industry,
-        companySize: lead.employees,
-        budget: lead.budgetRange,
-        painPoints: lead.painPoints,
-        goals: lead.goals,
-        location: lead.address
-      }))
-
-      // Simulate AI analysis - in real implementation, this would call an AI service
-      const newPersonas = [
-        {
-          name: 'Sarah Chen',
-          company: 'TechStart Solutions',
-          title: 'Operations Manager',
-          industry: 'Technology',
-          employees: 45,
-          budgetRange: '$5,000 - $10,000',
-          painPoints: 'Inefficient cleaning processes, high turnover',
-          goals: 'Improve workplace productivity, reduce operational costs',
-          address: 'Downtown Business District',
-          email: 'sarah.chen@techstart.com',
-          phone: '+1 (555) 123-4567'
-        },
-        {
-          name: 'Michael Rodriguez',
-          company: 'GreenLeaf Realty',
-          title: 'Property Manager',
-          industry: 'Real Estate',
-          employees: 12,
-          budgetRange: '$2,000 - $5,000',
-          painPoints: 'Maintaining property appeal, tenant satisfaction',
-          goals: 'Enhance property value, improve tenant retention',
-          address: 'Midtown Office Complex',
-          email: 'michael@greenleafrealty.com',
-          phone: '+1 (555) 987-6543'
-        },
-        {
-          name: 'Dr. Emily Watson',
-          company: 'Wellness Center Plus',
-          title: 'Practice Manager',
-          industry: 'Healthcare',
-          employees: 28,
-          budgetRange: '$3,000 - $7,000',
-          painPoints: 'Maintaining sterile environment, patient comfort',
-          goals: 'Ensure compliance, create welcoming atmosphere',
-          address: 'Medical Plaza',
-          email: 'emily.watson@wellnesscenter.com',
-          phone: '+1 (555) 456-7890'
-        }
-      ]
-
-      setAiPersonaResults(newPersonas)
-      setShowAIPersonaModal(true)
+      // Firebase mein update
+      const leadRef = doc(db, 'leads', lead.id)
+      await updateDoc(leadRef, {
+        status: newStage,
+        daysInStage: 0,
+        updatedAt: serverTimestamp()
+      })
+      
+      // Local state update
+      setLeads(leads.map(l => 
+        l.id === lead.id ? { 
+          ...l, 
+          status: newStage as Lead['status'], 
+          daysInStage: 0 
+        } : l
+      ))
     } catch (error) {
-      console.error('Error generating AI personas:', error)
-    } finally {
-      setIsGeneratingPersonas(false)
+      console.error('Error updating stage:', error)
+      alert('Failed to update stage!')
     }
+  }, [leads])
+
+  const handleDeleteLead = useCallback(async (leadId: string) => {
+    if (confirm('Are you sure you want to delete this lead?')) {
+      try {
+        // Firebase se delete
+        await deleteDoc(doc(db, 'leads', leadId))
+        
+        // Local state se remove
+        setLeads(leads.filter(l => l.id !== leadId))
+        setShowLeadModal(false)
+      } catch (error) {
+        console.error('Error deleting lead:', error)
+        alert('Failed to delete lead!')
+      }
+    }
+  }, [leads])
+
+  
+  const handleAddNewLead = async () => {
+  if (!formData.name || !formData.company || !formData.value) {
+    alert('Please fill in all required fields!')
+    return
   }
 
-  const createLeadFromPersona = (persona: any) => {
-    const newLead: Lead = {
-      id: Date.now(),
-      name: persona.name,
-      company: persona.company,
-      email: persona.email,
-      phone: persona.phone,
-      status: 'New',
-      value: 0,
+  try {
+    const newLeadData = {
+      name: formData.name,
+      company: formData.company,
+      status: formData.status,
+      value: parseInt(formData.value),
       daysInStage: 0,
-      priority: 'Medium',
-      tier: 'Standard',
+      priority: formData.priority,
+      email: formData.email,
+      phone: formData.phone,
+      tier: 'Bronze',
       joinDate: new Date().toISOString().split('T')[0],
+      address: '',
+      industry: '',
+      source: formData.sources.length > 0 ? formData.sources : ['Manual Entry'],
       lastContact: new Date().toISOString().split('T')[0],
-      notes: `AI-generated lead based on ${persona.industry} persona analysis`,
-      industry: persona.industry,
-      employees: persona.employees,
-      budgetRange: persona.budgetRange,
-      painPoints: persona.painPoints,
-      goals: persona.goals,
-      address: persona.address,
+      notes: '',
       website: '',
-      annualRevenue: '',
+      employees: 0,
+      annualRevenue: '0 AED',
+      secondaryContacts: [],
       linkedin: '',
       twitter: '',
       instagram: '',
+      budgetRange: '',
       decisionTimeline: '',
+      painPoints: '',
+      goals: '',
       competitors: '',
+      currentContract: null,
+      serviceHistory: [],
       preferredContactMethod: 'Email',
       preferredContactTime: '',
       timezone: 'GST (UTC+4)',
@@ -670,18 +418,370 @@ export default function UnifiedCRMDashboard() {
       outstandingBalance: 0,
       lastPaymentDate: null,
       satisfactionScore: null,
-      responseTime: 'Within 24 hours',
+      responseTime: '',
       contractRenewalProbability: null,
-      lifetimeValue: 0,
-      source: ['AI Generated'],
-      currentContract: null,
-      serviceHistory: [],
-      secondaryContacts: []
+      lifetimeValue: parseInt(formData.value),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     }
 
+    // Firebase mein add
+    const docRef = await addDoc(collection(db, 'leads'), newLeadData)
+    
+    // Local state mein add - Type cast explicitly
+    const newLead: Lead = {
+      id: docRef.id,
+      name: newLeadData.name,
+      company: newLeadData.company,
+      status: formData.status, // Direct from formData (which is already typed)
+      value: newLeadData.value,
+      daysInStage: newLeadData.daysInStage,
+      priority: formData.priority, // Direct from formData (which is already typed)
+      email: newLeadData.email,
+      phone: newLeadData.phone,
+      tier: newLeadData.tier,
+      joinDate: newLeadData.joinDate,
+      address: newLeadData.address,
+      industry: newLeadData.industry,
+      source: newLeadData.source,
+      lastContact: newLeadData.lastContact,
+      notes: newLeadData.notes,
+      website: newLeadData.website,
+      employees: newLeadData.employees,
+      annualRevenue: newLeadData.annualRevenue,
+      secondaryContacts: newLeadData.secondaryContacts,
+      linkedin: newLeadData.linkedin,
+      twitter: newLeadData.twitter,
+      instagram: newLeadData.instagram,
+      budgetRange: newLeadData.budgetRange,
+      decisionTimeline: newLeadData.decisionTimeline,
+      painPoints: newLeadData.painPoints,
+      goals: newLeadData.goals,
+      competitors: newLeadData.competitors,
+      currentContract: newLeadData.currentContract,
+      serviceHistory: newLeadData.serviceHistory,
+      preferredContactMethod: newLeadData.preferredContactMethod,
+      preferredContactTime: newLeadData.preferredContactTime,
+      timezone: newLeadData.timezone,
+      language: newLeadData.language,
+      paymentTerms: newLeadData.paymentTerms,
+      creditLimit: newLeadData.creditLimit,
+      outstandingBalance: newLeadData.outstandingBalance,
+      lastPaymentDate: newLeadData.lastPaymentDate,
+      satisfactionScore: newLeadData.satisfactionScore,
+      responseTime: newLeadData.responseTime,
+      contractRenewalProbability: newLeadData.contractRenewalProbability,
+      lifetimeValue: newLeadData.lifetimeValue,
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0]
+    }
+    
     setLeads([...leads, newLead])
-    setShowAIPersonaModal(false)
-    setAiPersonaResults([])
+    setFormData({ 
+      name: '', 
+      company: '', 
+      value: '', 
+      priority: 'Medium',
+      status: 'New',
+      email: '', 
+      phone: '', 
+      sources: [] 
+    })
+    setShowNewForm(false)
+  } catch (error) {
+    console.error('Error adding lead:', error)
+    alert('Failed to add lead!')
+  }
+}
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, lead: Lead) => {
+    setDraggedLead(lead)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = async (e: DragEvent<HTMLDivElement>, stageData: StageData) => {
+    e.preventDefault()
+    if (draggedLead && draggedLead.status !== stageData.stage) {
+      await handleMoveStage(draggedLead, stageData.stage)
+    }
+    setDraggedLead(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedLead(null)
+  }
+
+  const updateEnhancedData = async () => {
+    if (!enhancedData.selectedLeadId) {
+      alert('Please select a lead first!')
+      return
+    }
+
+    try {
+      const leadRef = doc(db, 'leads', enhancedData.selectedLeadId)
+      await updateDoc(leadRef, {
+        address: enhancedData.address,
+        industry: enhancedData.industry,
+        website: enhancedData.website,
+        employees: parseInt(enhancedData.employees) || 0,
+        annualRevenue: enhancedData.annualRevenue,
+        linkedin: enhancedData.linkedin,
+        twitter: enhancedData.twitter,
+        instagram: enhancedData.instagram,
+        budgetRange: enhancedData.budgetRange,
+        decisionTimeline: enhancedData.decisionTimeline,
+        painPoints: enhancedData.painPoints,
+        goals: enhancedData.goals,
+        competitors: enhancedData.competitors,
+        preferredContactMethod: enhancedData.preferredContactMethod,
+        preferredContactTime: enhancedData.preferredContactTime,
+        timezone: enhancedData.timezone,
+        language: enhancedData.language,
+        paymentTerms: enhancedData.paymentTerms,
+        creditLimit: parseInt(enhancedData.creditLimit) || 0,
+        secondaryContacts: enhancedData.secondaryContacts,
+        updatedAt: serverTimestamp()
+      })
+
+      // Local state update
+      setLeads(leads.map(lead =>
+        lead.id === enhancedData.selectedLeadId
+          ? {
+              ...lead,
+              address: enhancedData.address,
+              industry: enhancedData.industry,
+              website: enhancedData.website,
+              employees: parseInt(enhancedData.employees) || lead.employees,
+              annualRevenue: enhancedData.annualRevenue,
+              linkedin: enhancedData.linkedin,
+              twitter: enhancedData.twitter,
+              instagram: enhancedData.instagram,
+              budgetRange: enhancedData.budgetRange,
+              decisionTimeline: enhancedData.decisionTimeline,
+              painPoints: enhancedData.painPoints,
+              goals: enhancedData.goals,
+              competitors: enhancedData.competitors,
+              preferredContactMethod: enhancedData.preferredContactMethod,
+              preferredContactTime: enhancedData.preferredContactTime,
+              timezone: enhancedData.timezone,
+              language: enhancedData.language,
+              paymentTerms: enhancedData.paymentTerms,
+              creditLimit: parseInt(enhancedData.creditLimit) || lead.creditLimit,
+              secondaryContacts: enhancedData.secondaryContacts
+            }
+          : lead
+      ))
+
+      setShowEnhancedDataForm(false)
+      setEnhancedData({
+        selectedLeadId: null,
+        address: '',
+        industry: '',
+        website: '',
+        employees: '',
+        annualRevenue: '',
+        linkedin: '',
+        twitter: '',
+        instagram: '',
+        budgetRange: '',
+        decisionTimeline: '',
+        painPoints: '',
+        goals: '',
+        competitors: '',
+        preferredContactMethod: 'Email',
+        preferredContactTime: '',
+        timezone: 'GST (UTC+4)',
+        language: 'English',
+        paymentTerms: 'Net 30 days',
+        creditLimit: '',
+        secondaryContacts: []
+      })
+      
+      alert('Client data updated successfully!')
+    } catch (error) {
+      console.error('Error updating enhanced data:', error)
+      alert('Failed to update client data!')
+    }
+  }
+
+  const handleEditLead = (lead: Lead) => {
+    setEditFormData({
+      id: lead.id,
+      name: lead.name,
+      company: lead.company,
+      value: lead.value.toString(),
+      status: lead.status,
+      priority: lead.priority,
+      email: lead.email,
+      phone: lead.phone,
+      sources: lead.source || []
+    })
+    setShowEditForm(true)
+  }
+
+  const handleUpdateLead = async () => {
+    if (!editFormData || !editFormData.name || !editFormData.company || !editFormData.value) {
+      alert('Please fill in all required fields!')
+      return
+    }
+
+    try {
+      const leadRef = doc(db, 'leads', editFormData.id)
+      await updateDoc(leadRef, {
+        name: editFormData.name,
+        company: editFormData.company,
+        value: parseInt(editFormData.value),
+        status: editFormData.status,
+        priority: editFormData.priority,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        source: editFormData.sources.length > 0 ? editFormData.sources : ['Manual Entry'],
+        updatedAt: serverTimestamp()
+      })
+
+      // Local state update
+      setLeads(leads.map(l =>
+        l.id === editFormData.id
+          ? {
+              ...l,
+              name: editFormData.name,
+              company: editFormData.company,
+              value: parseInt(editFormData.value),
+              status: editFormData.status,
+              priority: editFormData.priority,
+              email: editFormData.email,
+              phone: editFormData.phone,
+              source: editFormData.sources
+            }
+          : l
+      ))
+
+      setShowEditForm(false)
+      setEditFormData(null)
+    } catch (error) {
+      console.error('Error updating lead:', error)
+      alert('Failed to update lead!')
+    }
+  }
+
+  const generateAIPersonas = async () => {
+    setIsGeneratingPersonas(true)
+    try {
+      // Real implementation: Top 3 highest value leads se data analyze karein
+      const topLeads = [...leads]
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 3)
+        .filter(lead => lead.value > 0)
+      
+      if (topLeads.length === 0) {
+        alert('No high-value leads found to analyze! Add some leads first.')
+        setIsGeneratingPersonas(false)
+        return
+      }
+      
+      // Top leads se analyze karke new personas generate karein
+      const newPersonas: AIPersona[] = topLeads.map((lead, index) => {
+        const industries = ['Technology', 'Real Estate', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Construction']
+        const randomIndustry = industries[Math.floor(Math.random() * industries.length)]
+        
+        return {
+          name: `AI Generated Lead ${index + 1}`,
+          company: `${lead.company} Clone Inc.`,
+          title: 'Decision Maker',
+          industry: randomIndustry,
+          employees: Math.floor(Math.random() * 500) + 50,
+          budgetRange: `AED ${Math.floor(lead.value * 1.5).toLocaleString()} - AED ${Math.floor(lead.value * 2.5).toLocaleString()}`,
+          painPoints: 'Inefficient processes, high operational costs, scalability issues',
+          goals: 'Improve efficiency, reduce costs, expand operations',
+          address: 'Dubai, UAE',
+          email: `contact${index + 1}@ai-generated.com`,
+          phone: `+971 5${Math.floor(Math.random() * 9000000) + 1000000}`,
+          dealValue: Math.floor(lead.value * 1.2), // 20% higher than top lead
+          source: 'AI Generated'
+        }
+      })
+
+      setAiPersonaResults(newPersonas)
+      setShowAIPersonaModal(true)
+    } catch (error) {
+      console.error('Error generating AI personas:', error)
+      alert('Error generating AI personas!')
+    } finally {
+      setIsGeneratingPersonas(false)
+    }
+  }
+
+  const createLeadFromPersona = async (persona: AIPersona) => {
+    try {
+      const newLeadData = {
+        name: persona.name,
+        company: persona.company,
+        email: persona.email,
+        phone: persona.phone,
+        status: 'New',
+        value: persona.dealValue || 0,
+        daysInStage: 0,
+        priority: 'High',
+        tier: 'Platinum',
+        joinDate: new Date().toISOString().split('T')[0],
+        lastContact: new Date().toISOString().split('T')[0],
+        notes: `AI-generated lead based on high-value pattern analysis. Pain Points: ${persona.painPoints}. Goals: ${persona.goals}`,
+        industry: persona.industry,
+        employees: persona.employees,
+        budgetRange: persona.budgetRange,
+        painPoints: persona.painPoints,
+        goals: persona.goals,
+        address: persona.address,
+        website: '',
+        annualRevenue: '',
+        linkedin: '',
+        twitter: '',
+        instagram: '',
+        decisionTimeline: '1-2 months',
+        competitors: '',
+        preferredContactMethod: 'Email',
+        preferredContactTime: '9 AM - 5 PM',
+        timezone: 'GST (UTC+4)',
+        language: 'English',
+        paymentTerms: 'Net 30 days',
+        creditLimit: 0,
+        outstandingBalance: 0,
+        lastPaymentDate: null,
+        satisfactionScore: null,
+        responseTime: 'Within 24 hours',
+        contractRenewalProbability: null,
+        lifetimeValue: persona.dealValue || 0,
+        source: ['AI Generated'],
+        currentContract: null,
+        serviceHistory: [],
+        secondaryContacts: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+
+      const docRef = await addDoc(collection(db, 'leads'), newLeadData)
+      
+      const newLead: Lead = {
+  id: docRef.id,
+  ...newLeadData,
+  status: formData.status as Lead['status'], // Explicit type assertion
+  priority: formData.priority as Lead['priority'], // Explicit type assertion
+  createdAt: new Date().toISOString().split('T')[0],
+  updatedAt: new Date().toISOString().split('T')[0]
+} as Lead // Final type assertion
+
+      setLeads([...leads, newLead])
+      setShowAIPersonaModal(false)
+      setAiPersonaResults([])
+      alert('AI lead created successfully!')
+    } catch (error) {
+      console.error('Error creating lead from persona:', error)
+      alert('Failed to create lead!')
+    }
   }
 
   const totalPipeline = leads.reduce((sum, l) => sum + l.value, 0)
@@ -694,6 +794,36 @@ export default function UnifiedCRMDashboard() {
       case 'High': return { bg: 'bg-red-100', text: 'text-red-900', badge: 'bg-red-50 text-red-700 border-red-300' }
       case 'Medium': return { bg: 'bg-amber-100', text: 'text-amber-900', badge: 'bg-amber-50 text-amber-700 border-amber-300' }
       default: return { bg: 'bg-green-100', text: 'text-green-900', badge: 'bg-green-50 text-green-700 border-green-300' }
+    }
+  }
+
+  const handleLeadSelectChange = (leadId: string) => {
+    const selectedLead = leads.find(l => l.id === leadId);
+    if (selectedLead) {
+      setEnhancedData({
+        ...enhancedData,
+        selectedLeadId: leadId,
+        address: selectedLead.address || '',
+        industry: selectedLead.industry || '',
+        website: selectedLead.website || '',
+        employees: selectedLead.employees?.toString() || '',
+        annualRevenue: selectedLead.annualRevenue || '',
+        linkedin: selectedLead.linkedin || '',
+        twitter: selectedLead.twitter || '',
+        instagram: selectedLead.instagram || '',
+        budgetRange: selectedLead.budgetRange || '',
+        decisionTimeline: selectedLead.decisionTimeline || '',
+        painPoints: selectedLead.painPoints || '',
+        goals: selectedLead.goals || '',
+        competitors: selectedLead.competitors || '',
+        preferredContactMethod: selectedLead.preferredContactMethod || 'Email',
+        preferredContactTime: selectedLead.preferredContactTime || '',
+        timezone: selectedLead.timezone || 'GST (UTC+4)',
+        language: selectedLead.language || 'English',
+        paymentTerms: selectedLead.paymentTerms || 'Net 30 days',
+        creditLimit: selectedLead.creditLimit?.toString() || '',
+        secondaryContacts: selectedLead.secondaryContacts || []
+      });
     }
   }
 
@@ -710,7 +840,7 @@ export default function UnifiedCRMDashboard() {
               <span className="text-blue-700 font-bold text-xs uppercase">CRM Management</span>
             </div>
             <h1 className="text-3xl font-black tracking-tight">Lead & Pipeline Hub</h1>
-            <p className="text-gray-600 mt-2 text-sm">Unified dashboard for leads and pipeline management</p>
+            <p className="text-gray-600 mt-2 text-sm"> {leads.length} leads found</p>
           </div>
           <div className="flex gap-3">
             <button onClick={() => setShowNewForm(true)} className="group relative flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]">
@@ -721,7 +851,7 @@ export default function UnifiedCRMDashboard() {
               <Database className="h-4 w-4" />
               Add Client Data
             </button>
-            <button 
+            {/* <button 
               onClick={generateAIPersonas} 
               disabled={isGeneratingPersonas}
               className="group relative flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg font-bold text-sm transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
@@ -733,6 +863,12 @@ export default function UnifiedCRMDashboard() {
               )}
               {isGeneratingPersonas ? 'Generating...' : 'AI Personas'}
             </button>
+            <button 
+              onClick={fetchLeads} 
+              className="group relative flex items-center gap-2 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-bold text-sm transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
+            >
+              🔄 Refresh
+            </button> */}
           </div>
         </div>
         <div className="absolute top-0 right-0 -mt-12 -mr-12 h-40 w-40 rounded-full bg-blue-100 blur-[80px] opacity-30"></div>
@@ -742,7 +878,7 @@ export default function UnifiedCRMDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {[
           { label: 'Total Pipeline', value: `AED ${(totalPipeline / 1000).toFixed(0)}K`, icon: DollarSign, color: 'blue' },
-          { label: 'Active Leads', value: activeLead, icon: Target, color: 'purple' },
+          { label: 'Active Leads',  value:` Active Lead ${leads.length} ` ,icon: Target, color: 'purple' },
           { label: 'Avg Deal Size', value: `AED ${(avgDealSize / 1000).toFixed(0)}K`, icon: TrendingUp, color: 'green' },
           { label: 'Won This Month', value: `AED ${(wonDeals / 1000).toFixed(0)}K`, icon: CheckCircle2, color: 'emerald' }
         ].map((stat, idx) => (
@@ -905,9 +1041,11 @@ export default function UnifiedCRMDashboard() {
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-[9px] font-bold uppercase border ${
                       lead.status === 'Won' ? 'bg-green-100 text-green-700 border-green-300' :
-                      lead.status === 'Proposal' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                      lead.status === 'Negotiation' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                       lead.status === 'New' ? 'bg-gray-100 text-gray-700 border-gray-300' :
-                      'bg-amber-100 text-amber-700 border-amber-300'
+                      lead.status === 'Qualified' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                      lead.status === 'Contacted' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                      'bg-yellow-100 text-yellow-700 border-yellow-300'
                     }`}>
                       {lead.status}
                     </span>
@@ -945,12 +1083,23 @@ export default function UnifiedCRMDashboard() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <button 
-                      onClick={() => { setSelectedLead(lead); setShowLeadModal(true) }}
-                      className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => { setSelectedLead(lead); setShowLeadModal(true) }}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleEditLead(lead)}
+                        className="p-1.5 hover:bg-blue-200 rounded-lg transition-colors text-blue-600"
+                        title="Edit Lead"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1086,7 +1235,7 @@ export default function UnifiedCRMDashboard() {
 
             <div className="p-4 space-y-3">
               <div>
-                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Contact Name</label>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Contact Name *</label>
                 <input
                   type="text"
                   placeholder="Enter name"
@@ -1097,7 +1246,7 @@ export default function UnifiedCRMDashboard() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Company</label>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Company *</label>
                 <input
                   type="text"
                   placeholder="Enter company"
@@ -1108,7 +1257,23 @@ export default function UnifiedCRMDashboard() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Deal Value (AED)</label>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Status *</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value as Lead['status']})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 font-bold"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacter">Contacter</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Negotiation">Negotiation</option>
+                  <option value="Won">Won</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Deal Value (AED) *</label>
                 <input
                   type="number"
                   placeholder="50000"
@@ -1183,7 +1348,7 @@ export default function UnifiedCRMDashboard() {
                 <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Priority</label>
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                  onChange={(e) => setFormData({...formData, priority: e.target.value as 'High' | 'Medium' | 'Low'})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 font-bold"
                 >
                   <option value="Low">Low</option>
@@ -1206,7 +1371,168 @@ export default function UnifiedCRMDashboard() {
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-bold text-sm uppercase transition-all flex items-center justify-center gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Create
+                Create Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Lead Modal */}
+      {showEditForm && editFormData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-300 bg-linear-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center border border-blue-300">
+                  <Edit2 className="h-5 w-5 text-blue-700" />
+                </div>
+                <h2 className="text-lg font-black text-gray-900">Edit Lead</h2>
+              </div>
+              <button onClick={() => setShowEditForm(false)} className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Contact Name *</label>
+                <input
+                  type="text"
+                  placeholder="Enter name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Company *</label>
+                <input
+                  type="text"
+                  placeholder="Enter company"
+                  value={editFormData.company}
+                  onChange={(e) => setEditFormData({...editFormData, company: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Status *</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({...editFormData, status: e.target.value as Lead['status']})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 font-bold"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacter">Contacter</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Negotiation">Negotiation</option>
+                  <option value="Won">Won</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Deal Value (AED) *</label>
+                <input
+                  type="number"
+                  placeholder="50000"
+                  value={editFormData.value}
+                  onChange={(e) => setEditFormData({...editFormData, value: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Email</label>
+                <input
+                  type="email"
+                  placeholder="email@company.ae"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Phone</label>
+                <input
+                  type="tel"
+                  placeholder="+971-50-1111111"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Lead Sources (Select Multiple)</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                  {availableSources.map((source) => (
+                    <label key={source} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.sources.includes(source)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditFormData({...editFormData, sources: [...editFormData.sources, source]})
+                          } else {
+                            setEditFormData({...editFormData, sources: editFormData.sources.filter(s => s !== source)})
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{source}</span>
+                    </label>
+                  ))}
+                </div>
+                {editFormData.sources.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {editFormData.sources.map((source: string) => (
+                      <span key={source} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                        {source}
+                        <button
+                          type="button"
+                          onClick={() => setEditFormData({...editFormData, sources: editFormData.sources.filter((s: string) => s !== source)})}
+                          className="hover:bg-blue-200 rounded-full p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-1">Priority</label>
+                <select
+                  value={editFormData.priority}
+                  onChange={(e) => setEditFormData({...editFormData, priority: e.target.value as Lead['priority']})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-900 font-bold"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-300 flex gap-3">
+              <button 
+                onClick={() => setShowEditForm(false)} 
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg font-bold text-sm uppercase transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateLead}
+                disabled={!editFormData.name || !editFormData.company || !editFormData.value}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-bold text-sm uppercase transition-all flex items-center justify-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Update Lead
               </button>
             </div>
           </div>
@@ -1238,36 +1564,7 @@ export default function UnifiedCRMDashboard() {
                 <label className="text-sm font-bold text-gray-700 uppercase block mb-3">Select Lead to Enhance</label>
                 <select
                   value={enhancedData.selectedLeadId || ''}
-                  onChange={(e) => {
-                    const leadId = parseInt(e.target.value);
-                    const selectedLead = leads.find(l => l.id === leadId);
-                    if (selectedLead) {
-                      setEnhancedData({
-                        ...enhancedData,
-                        selectedLeadId: leadId,
-                        address: selectedLead.address || '',
-                        industry: selectedLead.industry || '',
-                        website: selectedLead.website || '',
-                        employees: selectedLead.employees?.toString() || '',
-                        annualRevenue: selectedLead.annualRevenue || '',
-                        linkedin: selectedLead.linkedin || '',
-                        twitter: selectedLead.twitter || '',
-                        instagram: selectedLead.instagram || '',
-                        budgetRange: selectedLead.budgetRange || '',
-                        decisionTimeline: selectedLead.decisionTimeline || '',
-                        painPoints: selectedLead.painPoints || '',
-                        goals: selectedLead.goals || '',
-                        competitors: selectedLead.competitors || '',
-                        preferredContactMethod: selectedLead.preferredContactMethod || 'Email',
-                        preferredContactTime: selectedLead.preferredContactTime || '',
-                        timezone: selectedLead.timezone || 'GST (UTC+4)',
-                        language: selectedLead.language || 'English',
-                        paymentTerms: selectedLead.paymentTerms || 'Net 30 days',
-                        creditLimit: selectedLead.creditLimit?.toString() || '',
-                        secondaryContacts: selectedLead.secondaryContacts || []
-                      });
-                    }
-                  }}
+                  onChange={(e) => handleLeadSelectChange(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-gray-900 font-medium"
                 >
                   <option value="">Choose a lead...</option>
@@ -1528,61 +1825,7 @@ export default function UnifiedCRMDashboard() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (enhancedData.selectedLeadId) {
-                    setLeads(leads.map(lead =>
-                      lead.id === enhancedData.selectedLeadId
-                        ? {
-                            ...lead,
-                            address: enhancedData.address,
-                            industry: enhancedData.industry,
-                            website: enhancedData.website,
-                            employees: parseInt(enhancedData.employees) || lead.employees,
-                            annualRevenue: enhancedData.annualRevenue,
-                            linkedin: enhancedData.linkedin,
-                            twitter: enhancedData.twitter,
-                            instagram: enhancedData.instagram,
-                            budgetRange: enhancedData.budgetRange,
-                            decisionTimeline: enhancedData.decisionTimeline,
-                            painPoints: enhancedData.painPoints,
-                            goals: enhancedData.goals,
-                            competitors: enhancedData.competitors,
-                            preferredContactMethod: enhancedData.preferredContactMethod,
-                            preferredContactTime: enhancedData.preferredContactTime,
-                            timezone: enhancedData.timezone,
-                            language: enhancedData.language,
-                            paymentTerms: enhancedData.paymentTerms,
-                            creditLimit: parseInt(enhancedData.creditLimit) || lead.creditLimit,
-                            secondaryContacts: enhancedData.secondaryContacts
-                          }
-                        : lead
-                    ));
-                    setShowEnhancedDataForm(false);
-                    setEnhancedData({
-                      selectedLeadId: null,
-                      address: '',
-                      industry: '',
-                      website: '',
-                      employees: '',
-                      annualRevenue: '',
-                      linkedin: '',
-                      twitter: '',
-                      instagram: '',
-                      budgetRange: '',
-                      decisionTimeline: '',
-                      painPoints: '',
-                      goals: '',
-                      competitors: '',
-                      preferredContactMethod: 'Email',
-                      preferredContactTime: '',
-                      timezone: 'GST (UTC+4)',
-                      language: 'English',
-                      paymentTerms: 'Net 30 days',
-                      creditLimit: '',
-                      secondaryContacts: []
-                    });
-                  }
-                }}
+                onClick={updateEnhancedData}
                 disabled={!enhancedData.selectedLeadId}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg font-bold text-sm uppercase transition-all flex items-center justify-center gap-2"
               >
@@ -1644,8 +1887,8 @@ export default function UnifiedCRMDashboard() {
                               <p className="text-sm text-gray-900">{persona.budgetRange}</p>
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-gray-700 uppercase">Location</p>
-                              <p className="text-sm text-gray-900">{persona.address}</p>
+                              <p className="text-xs font-bold text-gray-700 uppercase">Deal Value</p>
+                              <p className="text-sm text-gray-900 font-bold">AED {persona.dealValue?.toLocaleString()}</p>
                             </div>
                           </div>
                           

@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // Optional: agar authentication chahiye
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDU9KZ3r-HtwjcQOxwCFSveprrBk1Mf8lA",
@@ -10,12 +10,19 @@ const firebaseConfig = {
   projectId: "homework-a36e3",
   storageBucket: "homework-a36e3.firebasestorage.app",
   messagingSenderId: "476483591829",
-  appId: "1:476483591829:web:336c9ccbb7e23d0049459c",
+  appId: "1:476483591829:web:336c9ccbb7e23d0049459a",
   measurementId: "G-NTCTYB9HVY"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-export const db = getFirestore(app); // Firestore export karein
-export const auth = getAuth(app); // Optional
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+// Analytics ko conditionally initialize karein
+let analytics;
+if (typeof window !== "undefined") {
+  // Check if we're in the browser
+  analytics = getAnalytics(app);
+}
+export { analytics };
