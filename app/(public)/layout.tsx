@@ -15,7 +15,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const [profileData, setProfileData] = useState({
     phone: '80046639675',
     email: 'services@homeworkuae.com',
-    company: 'homeware'
+    company: 'homeware',
+    address: 'Office: 201, 2nd Floor, Al Saaha Offices - B, Downtown Dubai - UAE' // Default address
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -32,7 +33,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             setProfileData({
               phone: data.profile.phone || '80046639675',
               email: data.profile.email || 'services@homeworkuae.com',
-              company: data.profile.company || 'homeware'
+              company: data.profile.company || 'homeware',
+              address: data.profile.address || 'Office: 201, 2nd Floor, Al Saaha Offices - B, Downtown Dubai - UAE' // Fetch address from Firebase
             })
           }
         }
@@ -278,19 +280,37 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                   <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shrink-0 shadow-lg">
                     <MapPin className="h-4 w-4" />
                   </div>
-                  <span className="group-hover:text-white transition-colors uppercase leading-relaxed font-bold text-[11px] tracking-tight">Office: 201, 2nd Floor, Al Saaha Offices - B, Downtown Dubai - UAE</span>
+                  <span className="group-hover:text-white transition-colors uppercase leading-relaxed font-bold text-[11px] tracking-tight">
+                    {isLoading ? (
+                      <span className="animate-pulse bg-slate-800 rounded w-48 h-4 block"></span>
+                    ) : (
+                      profileData.address
+                    )}
+                  </span>
                 </li>
                 <li className="flex items-start gap-4 group cursor-pointer">
                    <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shrink-0 shadow-lg">
                     <Phone className="h-4 w-4" />
                   </div>
-                  <a href={`tel:${profileData.phone}`} className="group-hover:text-white transition-colors">{profileData.phone}</a>
+                  <a href={`tel:${profileData.phone}`} className="group-hover:text-white transition-colors">
+                    {isLoading ? (
+                      <span className="animate-pulse bg-slate-800 rounded w-32 h-4 block"></span>
+                    ) : (
+                      profileData.phone
+                    )}
+                  </a>
                 </li>
                 <li className="flex items-start gap-4 group cursor-pointer">
                    <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shrink-0 shadow-lg">
                     <Mail className="h-4 w-4" />
                   </div>
-                  <a href={`mailto:${profileData.email}`} className="group-hover:text-white transition-colors">{profileData.email}</a>
+                  <a href={`mailto:${profileData.email}`} className="group-hover:text-white transition-colors">
+                    {isLoading ? (
+                      <span className="animate-pulse bg-slate-800 rounded w-40 h-4 block"></span>
+                    ) : (
+                      profileData.email
+                    )}
+                  </a>
                 </li>
               </ul>
             </div>

@@ -1,9 +1,43 @@
 "use client"
 
 import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { MessageCircle, Phone, Mail, ArrowRight, Sparkles } from 'lucide-react'
+import { db } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 
 export default function Quote() {
+  const [profileData, setProfileData] = useState({
+    email: 'services@homeworkuae.com',
+    phone: '80046639675',
+    whatsapp: '+971 50 717 7059' // Default WhatsApp number
+  })
+
+  // Fetch profile data from Firebase
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const docRef = doc(db, 'profile-setting', 'admin-settings')
+        const docSnap = await getDoc(docRef)
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data()
+          if (data.profile) {
+            setProfileData({
+              email: data.profile.email || 'services@homeworkuae.com',
+              phone: data.profile.phone || '80046639675',
+              whatsapp: data.profile.whatsapp || '+971 50 717 7059' // Fetch WhatsApp from Firebase
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error)
+      }
+    }
+
+    fetchProfileData()
+  }, [])
+
   return (
     <div className="flex flex-col overflow-hidden min-h-screen">
       {/* Hero Section */}
@@ -42,7 +76,7 @@ export default function Quote() {
           <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
             {/* WhatsApp */}
             <motion.a
-              href="https://wa.me/971507177059"
+              href={`https://wa.me/${profileData.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
               initial={{ opacity: 0, y: 20 }}
@@ -59,13 +93,13 @@ export default function Quote() {
               <h3 className="text-2xl font-black text-slate-900 mb-3">WhatsApp</h3>
               <p className="text-slate-600 font-medium mb-6">Instant messaging for quick responses</p>
               <div className="inline-flex items-center gap-2 text-[#25D366] font-black uppercase text-sm tracking-widest">
-                Chat Now <ArrowRight className="h-4 w-4" />
+                {profileData.whatsapp} <ArrowRight className="h-4 w-4" />
               </div>
             </motion.a>
 
             {/* Phone */}
             <motion.a
-              href="tel:80046639675"
+              href={`tel:${profileData.phone}`}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -78,13 +112,13 @@ export default function Quote() {
               <h3 className="text-2xl font-black text-slate-900 mb-3">Phone</h3>
               <p className="text-slate-600 font-medium mb-6">Speak with a specialist directly</p>
               <div className="inline-flex items-center gap-2 text-slate-900 font-black uppercase text-sm tracking-widest group-hover:text-primary transition-colors">
-                800 4663 9675 <ArrowRight className="h-4 w-4" />
+                {profileData.phone} <ArrowRight className="h-4 w-4" />
               </div>
             </motion.a>
 
             {/* Email */}
             <motion.a
-              href="mailto:services@homeworkuae.com"
+              href={`mailto:${profileData.email}`}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -97,7 +131,7 @@ export default function Quote() {
               <h3 className="text-2xl font-black text-slate-900 mb-3">Email</h3>
               <p className="text-slate-600 font-medium mb-6">Detailed inquiry with attachments</p>
               <div className="inline-flex items-center gap-2 text-primary font-black uppercase text-sm tracking-widest">
-                Send Email <ArrowRight className="h-4 w-4" />
+                {profileData.email} <ArrowRight className="h-4 w-4" />
               </div>
             </motion.a>
           </div>
@@ -160,7 +194,7 @@ export default function Quote() {
               Choose your preferred method above to connect with our team instantly
             </p>
             <motion.a
-              href="https://wa.me/971507177059"
+              href={`https://wa.me/${profileData.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-12 py-6 bg-[#25D366] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:shadow-3xl hover:scale-105 transition-all"

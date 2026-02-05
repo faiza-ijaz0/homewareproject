@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
@@ -12,9 +13,21 @@ import {
   FileText,
   CheckCircle,
   ArrowLeft,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react'
-import { MOCK_SERVICES, Service, MOCK_BOOKINGS } from '@/lib/bookings-services-data'
+import { db } from '@/lib/firebase'
+import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore'
+
+interface FirebaseService {
+  id: string
+  name: string
+  description: string
+  price: number
+  categoryName: string
+  status: string
+  cost: number
+}
 
 interface FormData {
   serviceId: string
@@ -25,6 +38,9 @@ interface FormData {
   bookingDate: string
   bookingTime: string
   notes: string
+  propertyType: string
+  frequency: string
+  area: string
 }
 
 function BookingPageContent() {
@@ -32,7 +48,8 @@ function BookingPageContent() {
   const selectedServiceId = searchParams.get('service') || ''
 
   const [currentStep, setCurrentStep] = useState(1)
-  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const [services, setServices] = useState<FirebaseService[]>([])
+  const [selectedService, setSelectedService] = useState<FirebaseService | null>(null)
   const [formData, setFormData] = useState<FormData>({
     serviceId: selectedServiceId,
     clientName: '',
@@ -41,22 +58,57 @@ function BookingPageContent() {
     clientAddress: '',
     bookingDate: '',
     bookingTime: '',
-    notes: ''
+    notes: '',
+    propertyType: 'apartment',
+    frequency: 'once',
+    area: ''
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [bookingNumber, setBookingNumber] = useState('')
 
-  // Set selected service on mount
+  // Fetch active services from Firebase
   useEffect(() => {
-    if (selectedServiceId) {
-      const service = MOCK_SERVICES.find(s => s.id === selectedServiceId)
-      if (service) {
-        setSelectedService(service)
-        setFormData(prev => ({ ...prev, serviceId: selectedServiceId }))
+    const fetchServices = async () => {
+      try {
+        const servicesRef = collection(db, 'services')
+        const q = query(servicesRef, where('status', '==', 'ACTIVE'))
+        const querySnapshot = await getDocs(q)
+        
+        const servicesData: FirebaseService[] = []
+        querySnapshot.forEach((doc) => {
+          const data = doc.data()
+          servicesData.push({
+            id: doc.id,
+            name: data.name || 'Service',
+            description: data.description || '',
+            price: data.price || 0,
+            categoryName: data.categoryName || 'Uncategorized',
+            status: data.status || '',
+            cost: data.cost || 0
+          })
+        })
+        
+        setServices(servicesData)
+        
+        // Set selected service if coming from URL
+        if (selectedServiceId) {
+          const service = servicesData.find(s => s.id === selectedServiceId)
+          if (service) {
+            setSelectedService(service)
+            setFormData(prev => ({ ...prev, serviceId: selectedServiceId }))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching services:', error)
+      } finally {
+        setIsLoadingServices(false)
       }
     }
+
+    fetchServices()
   }, [selectedServiceId])
 
   const validateEmail = (email: string) => {
@@ -137,6 +189,37 @@ function BookingPageContent() {
     }
   }
 
+  const saveBookingToFirebase = async (bookingData: any) => {
+    try {
+      // Generate booking ID
+      const bookingId = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`
+
+      // Prepare data with metadata
+      const bookingWithMeta = {
+        ...bookingData,
+        bookingId,
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, "bookings"), bookingWithMeta)
+
+      return {
+        success: true,
+        bookingId: docRef.id,
+        bookingRef: bookingId,
+      }
+    } catch (error: any) {
+      console.error("Firebase Error:", error)
+      return {
+        success: false,
+        error: error.message || "Failed to save booking",
+      }
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -144,6 +227,14 @@ function BookingPageContent() {
     const newErrors: Record<string, string> = {}
     if (!formData.clientName.trim()) {
       newErrors.clientName = 'Name is required'
+    }
+    if (!formData.clientEmail.trim()) {
+      newErrors.clientEmail = 'Email is required'
+    } else if (!validateEmail(formData.clientEmail)) {
+      newErrors.clientEmail = 'Please enter a valid email'
+    }
+    if (!formData.clientPhone.trim()) {
+      newErrors.clientPhone = 'Phone is required'
     }
 
     setErrors(newErrors)
@@ -154,15 +245,50 @@ function BookingPageContent() {
 
     setIsSubmitting(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Prepare booking data for Firebase
+      const bookingData = {
+        service: formData.serviceId,
+        name: formData.clientName,
+        email: formData.clientEmail,
+        phone: formData.clientPhone,
+        propertyType: formData.propertyType,
+        area: formData.area,
+        frequency: formData.frequency,
+        date: formData.bookingDate,
+        time: formData.bookingTime,
+        message: formData.notes,
+        clientAddress: formData.clientAddress
+      }
 
-      // Generate booking number
-      const newBookingNumber = `BK-${new Date().getFullYear()}-${String(MOCK_BOOKINGS.length + 1).padStart(3, '0')}`
-      setBookingNumber(newBookingNumber)
-      setShowSuccessModal(true)
+      // Save to Firebase
+      const result = await saveBookingToFirebase(bookingData)
+
+      if (result.success) {
+        setBookingNumber(result.bookingRef || '')
+        setShowSuccessModal(true)
+        
+        // Reset form
+        setFormData({
+          serviceId: '',
+          clientName: '',
+          clientEmail: '',
+          clientPhone: '',
+          clientAddress: '',
+          bookingDate: '',
+          bookingTime: '',
+          notes: '',
+          propertyType: 'apartment',
+          frequency: 'once',
+          area: ''
+        })
+        setSelectedService(null)
+        setCurrentStep(1)
+      } else {
+        throw new Error(result.error || 'Failed to save booking')
+      }
     } catch (error) {
       console.error('Booking error:', error)
+      alert('Error saving booking. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -236,37 +362,58 @@ function BookingPageContent() {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-lg">
               <h2 className="text-2xl font-black mb-6 text-foreground">Select Your Service</h2>
 
-              <div className="grid grid-cols-1 gap-4">
-                {MOCK_SERVICES.filter(s => s.isActive).map(service => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, serviceId: service.id }))
-                      setSelectedService(service)
-                    }}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
-                      formData.serviceId === service.id
-                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-bold text-foreground">{service.name}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
-                        <div className="flex items-center gap-4 mt-3 text-sm">
-                          <span className="font-bold text-foreground">AED {service.basePrice}</span>
-                          <span className="text-muted-foreground">Duration: {service.duration}h</span>
+              {isLoadingServices ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700">
+                      <div className="animate-pulse">
+                        <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-3"></div>
+                        <div className="flex items-center gap-4">
+                          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div>
+                          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24"></div>
                         </div>
                       </div>
-                      {formData.serviceId === service.id && (
-                        <CheckCircle className="h-6 w-6 text-blue-600 shrink-0" />
-                      )}
                     </div>
-                  </button>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : services.length === 0 ? (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-900">
+                  <p className="text-amber-700 dark:text-amber-300 font-bold">No services available at the moment.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {services.map(service => (
+                    <button
+                      key={service.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, serviceId: service.id }))
+                        setSelectedService(service)
+                      }}
+                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        formData.serviceId === service.id
+                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/30'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-bold text-foreground">{service.name}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                          <div className="flex items-center gap-4 mt-3 text-sm">
+                            <span className="font-bold text-foreground">AED {service.price}</span>
+                            <span className="text-muted-foreground">Category: {service.categoryName}</span>
+                          </div>
+                        </div>
+                        {formData.serviceId === service.id && (
+                          <CheckCircle2 className="h-6 w-6 text-blue-600 shrink-0" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {errors.serviceId && (
                 <div className="mt-4 p-4 bg-red-50 dark:bg-red-950/30 rounded-lg flex items-center gap-3 text-red-700 dark:text-red-300">
@@ -342,6 +489,40 @@ function BookingPageContent() {
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="flex text-sm font-bold text-foreground mb-2 items-center gap-2">
+                    Property Type
+                  </label>
+                  <select
+                    name="propertyType"
+                    value={formData.propertyType}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none transition-all focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="apartment">Apartment</option>
+                    <option value="villa">Villa</option>
+                    <option value="office">Office</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="flex text-sm font-bold text-foreground mb-2 items-center gap-2">
+                    Frequency
+                  </label>
+                  <select
+                    name="frequency"
+                    value={formData.frequency}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none transition-all focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="once">One-Time</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Bi-Weekly</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="flex text-sm font-bold text-foreground mb-2 items-center gap-2">
                   <MapPin className="h-4 w-4" />
@@ -360,6 +541,20 @@ function BookingPageContent() {
                 {errors.clientAddress && (
                   <p className="text-red-600 dark:text-red-400 text-sm font-bold mt-1">{errors.clientAddress}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="flex text-sm font-bold text-foreground mb-2 items-center gap-2">
+                  General Area / Location
+                </label>
+                <input
+                  type="text"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleInputChange}
+                  placeholder="Dubai Marina, Downtown, etc."
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none transition-all focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
           )}
@@ -422,13 +617,13 @@ function BookingPageContent() {
               <div>
                 <label className="flex text-sm font-bold text-foreground mb-2 items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Additional Notes (Optional)
+                  Special Notes (Optional)
                 </label>
                 <textarea
                   name="notes"
                   value={formData.notes}
                   onChange={handleInputChange}
-                  placeholder="Any special requests or requirements..."
+                  placeholder="Any specific instructions or priorities for our team?"
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none transition-all focus:ring-2 focus:ring-blue-500"
                 />
@@ -463,8 +658,23 @@ function BookingPageContent() {
                 </div>
                 <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
                 <div className="flex justify-between items-start">
+                  <p className="text-sm text-muted-foreground font-bold">Property Type</p>
+                  <p className="font-bold text-foreground text-right">{formData.propertyType}</p>
+                </div>
+                <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
+                <div className="flex justify-between items-start">
+                  <p className="text-sm text-muted-foreground font-bold">Frequency</p>
+                  <p className="font-bold text-foreground text-right">{formData.frequency}</p>
+                </div>
+                <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
+                <div className="flex justify-between items-start">
                   <p className="text-sm text-muted-foreground font-bold">Address</p>
                   <p className="font-bold text-foreground text-right">{formData.clientAddress}</p>
+                </div>
+                <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
+                <div className="flex justify-between items-start">
+                  <p className="text-sm text-muted-foreground font-bold">Area</p>
+                  <p className="font-bold text-foreground text-right">{formData.area}</p>
                 </div>
                 <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
                 <div className="flex justify-between items-start">
@@ -474,13 +684,13 @@ function BookingPageContent() {
                 <div className="h-px bg-blue-200 dark:bg-blue-900"></div>
                 <div className="flex justify-between items-start">
                   <p className="text-sm text-muted-foreground font-bold">Estimated Price</p>
-                  <p className="font-black text-blue-600 text-lg">AED {selectedService.basePrice}</p>
+                  <p className="font-black text-blue-600 text-lg">AED {selectedService.price}</p>
                 </div>
               </div>
 
               {formData.notes && (
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900">
-                  <p className="text-sm text-amber-700 dark:text-amber-300 font-bold">Notes</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 font-bold">Special Notes</p>
                   <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">{formData.notes}</p>
                 </div>
               )}

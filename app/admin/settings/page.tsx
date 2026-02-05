@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  Monitor
+  Monitor,
+  MapPin,
+  MessageCircle
 } from 'lucide-react'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
@@ -23,12 +25,14 @@ export default function Settings() {
   const [showSave, setShowSave] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   
-  // Profile Data
+  // Profile Data - Address and WhatsApp field added
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
     phone: '',
+    whatsapp: '', // New WhatsApp field
     company: '',
+    address: '',
     role: 'Administrator'
   })
   
@@ -74,13 +78,15 @@ export default function Settings() {
         if (docSnap.exists()) {
           const data = docSnap.data()
           
-          // Set profile data
+          // Set profile data - include WhatsApp field
           if (data.profile) {
             setProfileData({
               fullName: data.profile.fullName || '',
               email: data.profile.email || '',
               phone: data.profile.phone || '',
+              whatsapp: data.profile.whatsapp || '', // New WhatsApp field
               company: data.profile.company || '',
+              address: data.profile.address || '',
               role: data.profile.role || 'Administrator'
             })
           }
@@ -155,7 +161,7 @@ export default function Settings() {
       }
       
       await setDoc(doc(db, 'profile-setting', 'admin-settings'), settingsData)
-      alert('Settings saved successfully to Firebase!')
+      alert('Settings saved successfully!')
       setShowSave(false)
     } catch (error) {
       console.error('Error saving settings:', error)
@@ -255,14 +261,39 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Phone Number</label>
+                  <label className="block text-sm font-medium mb-2">
+                    <span className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      Phone Number
+                    </span>
+                  </label>
                   <input
                     type="tel"
                     value={profileData.phone}
                     onChange={(e) => handleProfileChange('phone', e.target.value)}
                     className="w-full px-4 py-2 bg-muted border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    placeholder="Enter your phone number"
+                    placeholder="+971 50 123 4567"
                   />
+                </div>
+
+                {/* NEW WHATSAPP FIELD ADDED HERE */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    <span className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp Number
+                    </span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={profileData.whatsapp}
+                    onChange={(e) => handleProfileChange('whatsapp', e.target.value)}
+                    className="w-full px-4 py-2 bg-muted border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                    placeholder="+971 50 123 4567"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter WhatsApp number with country code for WhatsApp chat
+                  </p>
                 </div>
 
                 <div>
@@ -274,6 +305,26 @@ export default function Settings() {
                     className="w-full px-4 py-2 bg-muted border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Enter company name"
                   />
+                </div>
+
+                {/* ADDRESS FIELD */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    <span className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Address
+                    </span>
+                  </label>
+                  <textarea
+                    value={profileData.address}
+                    onChange={(e) => handleProfileChange('address', e.target.value)}
+                    className="w-full px-4 py-2 bg-muted border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 min-h-[100px]"
+                    placeholder="Enter company address (e.g., Business Bay, Dubai, UAE)"
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter the complete company address including building, area, city
+                  </p>
                 </div>
 
                 <button
@@ -293,8 +344,6 @@ export default function Settings() {
                     </>
                   )}
                 </button>
-                
-              
               </div>
             </div>
           )}
@@ -535,19 +584,7 @@ export default function Settings() {
       </div>
 
       {/* Global Save Button */}
-      {showSave && (
-        <div className="fixed bottom-6 right-6 bg-pink-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <Save className="h-4 w-4" />
-          <span className="font-medium">Unsaved changes</span>
-          <button
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            className="ml-4 px-4 py-1.5 bg-white text-pink-600 rounded font-medium text-sm hover:bg-pink-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? 'Saving...' : 'Save All Changes'}
-          </button>
-        </div>
-      )}
+    
     </div>
   )
 }
