@@ -1,7 +1,6 @@
-// app/(public)/book-service/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar,
@@ -22,8 +21,18 @@ import {
   Check,
   PhoneCall,
 } from "lucide-react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs } from "firebase/firestore";
 import { db } from '@/lib/firebase'; // Import from centralized config
+
+// Firebase service type
+interface FirebaseService {
+  id: string;
+  name: string;
+  categoryName: string;
+  price: number;
+  description: string;
+  status: string;
+}
 
 // Save booking to Firebase function
 const saveBookingToFirebase = async (bookingData: any) => {
@@ -54,6 +63,35 @@ const saveBookingToFirebase = async (bookingData: any) => {
       success: false,
       error: error.message || "Failed to save booking",
     };
+  }
+};
+
+// Fetch services from Firebase
+const fetchServicesFromFirebase = async (): Promise<FirebaseService[]> => {
+  try {
+    const servicesRef = collection(db, "services");
+    const querySnapshot = await getDocs(servicesRef);
+    
+    const services: FirebaseService[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Only include active services
+      if (data.status === "ACTIVE") {
+        services.push({
+          id: doc.id,
+          name: data.name || "",
+          categoryName: data.categoryName || "Uncategorized",
+          price: data.price || 0,
+          description: data.description || "",
+          status: data.status || "",
+        });
+      }
+    });
+    
+    return services;
+  } catch (error) {
+    console.error("Error fetching services:", error);
+    return [];
   }
 };
 
@@ -205,6 +243,8 @@ export default function BookService() {
   const [step, setStep] = useState(1);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [latestBooking, setLatestBooking] = useState<any>(null);
+  const [firebaseServices, setFirebaseServices] = useState<FirebaseService[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -219,7 +259,7 @@ export default function BookService() {
     message: "",
   });
 
-  // Comprehensive list of services categorised by our 3-tier system
+  // Original hardcoded services (unchanged)
   const serviceCategories = [
     {
       group: "Normal Cleaning",
@@ -258,6 +298,23 @@ export default function BookService() {
       ],
     },
   ];
+
+  // Fetch services from Firebase on component mount
+  useEffect(() => {
+    const loadServices = async () => {
+      setIsLoadingServices(true);
+      try {
+        const services = await fetchServicesFromFirebase();
+        setFirebaseServices(services);
+      } catch (error) {
+        console.error("Failed to load services:", error);
+      } finally {
+        setIsLoadingServices(false);
+      }
+    };
+    
+    loadServices();
+  }, []);
 
   const totalSteps = 3;
 
@@ -328,13 +385,34 @@ export default function BookService() {
     }));
   };
 
-  // Get service name from ID
+  // Get service name from ID - Updated to check both hardcoded and Firebase services
   const getServiceName = (id: string) => {
+    // First check hardcoded services
     for (const category of serviceCategories) {
       const service = category.options.find((opt) => opt.id === id);
       if (service) return service.label;
     }
+    
+    // Then check Firebase services
+    const firebaseService = firebaseServices.find((service) => service.id === id);
+    if (firebaseService) return firebaseService.name;
+    
     return id;
+  };
+
+  // Group Firebase services by category
+  const groupServicesByCategory = () => {
+    const grouped: { [key: string]: FirebaseService[] } = {};
+    
+    firebaseServices.forEach((service) => {
+      const category = service.categoryName || "Other Services";
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(service);
+    });
+    
+    return grouped;
   };
 
   return (
@@ -572,16 +650,40 @@ export default function BookService() {
                               className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold text-sm shadow-inner appearance-none relative z-10"
                             >
                               <option value="">Choose Service...</option>
+                              
+                              {/* Hardcoded Services (unchanged) */}
                               {serviceCategories.map((cat, idx) => (
-                                <optgroup key={idx} label={cat.group}>
+                                <optgroup key={`hardcoded-${idx}`} label={cat.group}>
                                   {cat.options.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>
+                                    <option key={`hardcoded-${opt.id}`} value={opt.id}>
                                       {opt.label}
                                     </option>
                                   ))}
                                 </optgroup>
                               ))}
+                              
+                              {/* Firebase Services */}
+                              {isLoadingServices ? (
+                                <option disabled>
+                                  Loading services...
+                                </option>
+                              ) : (
+                                Object.entries(groupServicesByCategory()).map(([category, services]) => (
+                                  <optgroup key={`firebase-${category}`} label={category}>
+                                    {services.map((service) => (
+                                      <option key={`firebase-${service.id}`} value={service.id}>
+                                        {service.name} - AED {service.price}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))
+                              )}
                             </select>
+                            {isLoadingServices && (
+                              <p className="text-xs text-slate-500 mt-2 italic">
+                                Loading services from database...
+                              </p>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-2 gap-6">
